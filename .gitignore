@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+credentials.json
+token.json
+tarp-field.log
+backend/static/
+frontend/node_modules/
+frontend/dist/
