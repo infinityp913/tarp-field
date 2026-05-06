@@ -96,9 +96,8 @@ If the Alienware loses WiFi:
 # Install dependencies
 pip install -r requirements.txt
 
-# Run the backend with hot reload (reads dev_base_path and port 8001 from config.yaml,
-# handles Google Sheets OAuth automatically on first run)
-python3 backend/main.py --dev
+# Run the backend with hot reload (reads dev_base_path and port 8001 from config.yaml)
+python3 -m backend.main --dev
 
 # Run the frontend dev server in a second terminal
 cd frontend && npm run dev
