@@ -8,4 +8,4 @@ stage_folders:
 
 gsheets_spreadsheet_id: ""   # paste from the spreadsheet URL
 host: 127.0.0.1
-port: 8000
+port: 8001

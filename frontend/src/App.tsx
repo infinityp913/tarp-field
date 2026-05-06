@@ -78,7 +78,7 @@ export default function App() {
   // Initial load + 60s auto-pull
   useEffect(() => {
     loadJobs()
-    const iv = setInterval(loadJobs, 60_000)
+    const iv = setInterval(loadJobs, 300_000)
     return () => clearInterval(iv)
   }, [loadJobs])
 

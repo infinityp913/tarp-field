@@ -8,7 +8,7 @@
 
 1. Open the `tarp-field` folder on your Desktop.
 2. Double-click **`start.bat`**.
-3. A black command window will appear — leave it open. The dashboard will open in your browser automatically at **http://127.0.0.1:8000**.
+3. A black command window will appear — leave it open. The dashboard will open in your browser automatically at **http://127.0.0.1:8001**.
 
 To close the dashboard, close the black command window.
 
@@ -81,7 +81,7 @@ If the Alienware loses WiFi:
 
 | Problem | What to check |
 |---|---|
-| Dashboard doesn't open | Make sure the black command window is still open. Try going to http://127.0.0.1:8000 manually. |
+| Dashboard doesn't open | Make sure the black command window is still open. Try going to http://127.0.0.1:8001 manually. |
 | No jobs showing on the board | The stage folders may not be found. Check that the `tarp-field` folder is configured correctly (ask Ananth). |
 | Red dot — offline | Check WiFi; the app will retry automatically. |
 | "Authorisation failed" on first run | Make sure `credentials.json` is in the right place and try again. |
@@ -93,7 +93,15 @@ If the Alienware loses WiFi:
 ## For developers (Mac setup)
 
 ```bash
-# Clone the repo and install dependencies
+
+# Clone the repo and navigate to the folder
+git clone <repo-url> && cd tarp-field
+
+# Create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate  
+
+#Install dependencies
 pip install -r requirements.txt
 
 # Run the backend
