@@ -93,24 +93,15 @@ If the Alienware loses WiFi:
 ## For developers (Mac setup)
 
 ```bash
-
-# Clone the repo and navigate to the folder
-git clone <repo-url> && cd tarp-field
-
-# Create and activate a virtual environment
-python3 -m venv .venv
-source .venv/bin/activate  
-
-#Install dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-# Run the backend (port 8001 — avoids clash with tarp-lab on 8000)
-uvicorn backend.main:app --reload --port 8001
+# Run the backend with hot reload (reads dev_base_path and port 8001 from config.yaml,
+# handles Google Sheets OAuth automatically on first run)
+python3 backend/main.py --dev
 
-# Run the frontend dev server (hot reload)
+# Run the frontend dev server in a second terminal
 cd frontend && npm run dev
 ```
 
 Set `dev_base_path` in `config.yaml` to a local test folder that mirrors the stage-folder structure.
-
-For first-time Google Sheets auth on Mac, start with `python3 backend/main.py` instead of `uvicorn` — this triggers the OAuth browser flow before the server starts.

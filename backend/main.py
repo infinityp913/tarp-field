@@ -109,6 +109,6 @@ if __name__ == "__main__":
         "backend.main:app",
         host=cfg.host,
         port=cfg.port,
-        reload=False,
+        reload=args.dev,
         log_level="info",
     )
