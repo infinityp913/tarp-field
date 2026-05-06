@@ -229,6 +229,23 @@ export default function App() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button
+            onClick={loadJobs}
+            title="Reload folders from disk"
+            style={{
+              background: T.colBg,
+              color: T.textSub,
+              border: `1px solid ${T.border}`,
+              borderRadius: 6,
+              padding: '6px 10px',
+              fontSize: 15,
+              cursor: 'pointer',
+              lineHeight: 1,
+            }}
+          >
+            ↻
+          </button>
+
+          <button
             onClick={() => setShowCreate(true)}
             style={{
               background: T.accent,
