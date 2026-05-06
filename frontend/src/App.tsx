@@ -167,12 +167,17 @@ export default function App() {
 
   const pushLabel =
     pushState === 'pushing' ? 'Pushing…'
-    : pushState === 'ok' ? 'Pushed!'
+    : pushState === 'ok' ? '✓ Pushed!'
     : pushState === 'error' ? 'Push failed'
-    : lastPushAt ? `Pushed ${timeAgo(lastPushAt)}`
-    : 'Push'
+    : lastPushAt ? `↑ Push to Sheet · ${timeAgo(lastPushAt)}`
+    : '↑ Push to Sheet'
 
-  const dotColor = !online ? '#ef4444' : pushState === 'pushing' ? '#f59e0b' : '#22c55e'
+  const pushBg =
+    !online ? T.inputBorder
+    : pushState === 'pushing' ? '#f59e0b'
+    : pushState === 'ok' ? '#22c55e'
+    : pushState === 'error' ? '#ef4444'
+    : T.accent
 
   return (
     <div style={{ minHeight: '100vh', background: T.bg, color: T.text }}>
@@ -193,9 +198,20 @@ export default function App() {
         <button
           onClick={handlePush}
           disabled={pushState === 'pushing' || !online}
-          style={{ ...pushPill, opacity: !online ? 0.5 : 1, cursor: pushState === 'pushing' || !online ? 'default' : 'pointer' }}
+          style={{
+            padding: '7px 16px',
+            borderRadius: 6,
+            border: 'none',
+            background: pushBg,
+            color: '#fff',
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: pushState === 'pushing' || !online ? 'default' : 'pointer',
+            opacity: !online ? 0.5 : 1,
+            transition: 'background 0.2s',
+            whiteSpace: 'nowrap',
+          }}
         >
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
           {pushLabel}
         </button>
       </div>
@@ -223,10 +239,8 @@ export default function App() {
           {trenchFilter !== 'All Trenches' && ` of ${jobs.length}`}
         </span>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button onClick={loadJobs} style={refreshBtn}>↻ Refresh</button>
-          <button onClick={() => setShowCreate(true)} style={addBtn}>+ New Job</button>
-        </div>
+        <button onClick={loadJobs} style={refreshBtn}>↻ Refresh</button>
+        <button onClick={() => setShowCreate(true)} style={addBtn}>+ New Job</button>
       </div>
 
       {/* Board */}
@@ -294,18 +308,6 @@ const queueBadge: React.CSSProperties = {
   padding: '1px 8px',
 }
 
-const pushPill: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  padding: '6px 12px',
-  borderRadius: 20,
-  border: `1px solid ${T.border}`,
-  background: T.surface,
-  fontSize: 12,
-  fontWeight: 600,
-  color: T.textSub,
-}
 
 const selectStyle: React.CSSProperties = {
   padding: '7px 12px', borderRadius: 6, border: `1px solid ${T.inputBorder}`,
