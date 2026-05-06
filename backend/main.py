@@ -42,7 +42,7 @@ def health():
 
 
 # Serve built React app
-if STATIC_DIR.exists():
+if (STATIC_DIR / "assets").exists():
     app.mount("/assets", StaticFiles(directory=str(STATIC_DIR / "assets")), name="assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
