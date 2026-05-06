@@ -1,0 +1,11 @@
+base_path: "C:\\Users\\Field"       # Windows stage-folder root
+dev_base_path: "/Users/ananth/tarp-field-test"  # Mac dev path (auto-used on non-Windows)
+
+stage_folders:
+  not_started: Not Started
+  aligned:     Aligned
+  move_to_msi: Move to MSI
+
+gsheets_spreadsheet_id: ""   # paste from the spreadsheet URL
+host: 127.0.0.1
+port: 8000
