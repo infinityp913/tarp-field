@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -7,7 +7,6 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  useDroppable,
 } from '@dnd-kit/core'
 import type { FieldJob, FieldStage } from './types'
 import { FIELD_STAGES, STAGE_LABELS } from './types'
@@ -25,20 +24,13 @@ import {
 
 function OverlayCard({ job }: { job: FieldJob }) {
   return (
-    <div
-      style={{
-        background: T.surface,
-        border: `1px solid ${T.border}`,
-        borderRadius: 8,
-        padding: '10px 12px',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-        width: 280,
-      }}
-    >
+    <div style={{
+      background: T.surface, border: `1px solid ${T.border}`,
+      borderRadius: 8, padding: '10px 12px',
+      boxShadow: '0 4px 16px rgba(0,0,0,0.15)', width: 280,
+    }}>
       <div style={{ fontWeight: 600, fontSize: 14, color: T.text }}>{job.job_id}</div>
-      {job.su_string && (
-        <div style={{ fontSize: 12, color: T.textSub, marginTop: 2 }}>{job.su_string}</div>
-      )}
+      {job.su_string && <div style={{ fontSize: 12, color: T.textSub, marginTop: 2 }}>{job.su_string}</div>}
     </div>
   )
 }
@@ -58,6 +50,7 @@ export default function App() {
   const [activeJob, setActiveJob] = useState<FieldJob | null>(null)
   const [overColumn, setOverColumn] = useState<FieldStage | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [trenchFilter, setTrenchFilter] = useState('All Trenches')
   const [online, setOnline] = useState(navigator.onLine)
   const [pendingCount, setPendingCount] = useState(0)
   const [pushState, setPushState] = useState<PushState>('idle')
@@ -75,20 +68,17 @@ export default function App() {
     }
   }, [])
 
-  // Initial load + 60s auto-pull
   useEffect(() => {
     loadJobs()
     const iv = setInterval(loadJobs, 300_000)
     return () => clearInterval(iv)
   }, [loadJobs])
 
-  // 30s display tick for "X ago" label
   useEffect(() => {
     const iv = setInterval(() => forceUpdate(n => n + 1), 30_000)
     return () => clearInterval(iv)
   }, [])
 
-  // Offline/online detection + queue replay
   useEffect(() => {
     function handleOnline() {
       setOnline(true)
@@ -97,9 +87,7 @@ export default function App() {
         setPendingCount(queueDepth())
       })
     }
-    function handleOffline() {
-      setOnline(false)
-    }
+    function handleOffline() { setOnline(false) }
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
     return () => {
@@ -108,14 +96,19 @@ export default function App() {
     }
   }, [loadJobs])
 
-  // Keep pending count in sync
-  useEffect(() => {
-    setPendingCount(queueDepth())
-  }, [])
+  useEffect(() => { setPendingCount(queueDepth()) }, [])
+
+  // Derive trench list from loaded jobs
+  const trenches = [...new Set(jobs.map(j => j.trench).filter(Boolean))].sort()
+
+  const filtered = trenchFilter === 'All Trenches'
+    ? jobs
+    : jobs.filter(j => j.trench === trenchFilter)
+
+  const byStage = (stage: FieldStage) => filtered.filter(j => j.stage === stage)
 
   function handleDragStart(e: DragStartEvent) {
-    const job = jobs.find(j => j.job_id === e.active.id)
-    setActiveJob(job ?? null)
+    setActiveJob(jobs.find(j => j.job_id === e.active.id) ?? null)
   }
 
   async function handleDragEnd(e: DragEndEvent) {
@@ -128,17 +121,12 @@ export default function App() {
     const job = jobs.find(j => j.job_id === jobId)
     if (!job || job.stage === targetStage) return
 
-    // Optimistic update
     setJobs(prev => prev.map(j => j.job_id === jobId ? { ...j, stage: targetStage } : j))
-
     try {
       const updated = await moveStage(jobId, targetStage, online)
-      if (updated) {
-        setJobs(prev => prev.map(j => j.job_id === jobId ? updated : j))
-      }
+      if (updated) setJobs(prev => prev.map(j => j.job_id === jobId ? updated : j))
       setPendingCount(queueDepth())
     } catch {
-      // Revert on error
       setJobs(prev => prev.map(j => j.job_id === jobId ? job : j))
       setPendingCount(queueDepth())
     }
@@ -150,7 +138,6 @@ export default function App() {
       if (newJob) {
         setJobs(prev => [...prev, newJob])
       } else {
-        // Queued offline — add placeholder
         setJobs(prev => [
           ...prev,
           { job_id: jobId, su_string: suString, trench: '', stage: 'not_started', notes: '', last_updated: '' },
@@ -178,8 +165,6 @@ export default function App() {
     setJobs(prev => prev.map(j => j.job_id === jobId ? { ...j, notes } : j))
   }
 
-  const byStage = (stage: FieldStage) => jobs.filter(j => j.stage === stage)
-
   const pushLabel =
     pushState === 'pushing' ? 'Pushing…'
     : pushState === 'ok' ? 'Pushed!'
@@ -187,114 +172,65 @@ export default function App() {
     : lastPushAt ? `Pushed ${timeAgo(lastPushAt)}`
     : 'Push'
 
-  const dotColor =
-    !online ? '#ef4444'
-    : pushState === 'pushing' ? '#f59e0b'
-    : '#22c55e'
+  const dotColor = !online ? '#ef4444' : pushState === 'pushing' ? '#f59e0b' : '#22c55e'
 
   return (
     <div style={{ minHeight: '100vh', background: T.bg, color: T.text }}>
       {/* Header */}
-      <div
-        style={{
-          background: T.surface,
-          borderBottom: `1px solid ${T.border}`,
-          padding: '0 20px',
-          height: 56,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-        }}
-      >
+      <div style={headerStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontWeight: 700, fontSize: 16, color: T.text }}>TARP Field</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16, color: T.text, letterSpacing: '-0.01em' }}>
+              TARP Field
+            </div>
+            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 1 }}>Season 2026</div>
+          </div>
           {!online && pendingCount > 0 && (
-            <span
-              style={{
-                fontSize: 11,
-                background: '#fef3c7',
-                color: '#92400e',
-                border: '1px solid #fcd34d',
-                borderRadius: 10,
-                padding: '1px 8px',
-              }}
-            >
-              {pendingCount} queued
-            </span>
+            <span style={queueBadge}>{pendingCount} queued</span>
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button
-            onClick={loadJobs}
-            title="Reload folders from disk"
-            style={{
-              background: T.colBg,
-              color: T.textSub,
-              border: `1px solid ${T.border}`,
-              borderRadius: 6,
-              padding: '6px 10px',
-              fontSize: 15,
-              cursor: 'pointer',
-              lineHeight: 1,
-            }}
-          >
-            ↻
-          </button>
+        <button
+          onClick={handlePush}
+          disabled={pushState === 'pushing' || !online}
+          style={{ ...pushPill, opacity: !online ? 0.5 : 1, cursor: pushState === 'pushing' || !online ? 'default' : 'pointer' }}
+        >
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+          {pushLabel}
+        </button>
+      </div>
 
-          <button
-            onClick={() => setShowCreate(true)}
-            style={{
-              background: T.accent,
-              color: '#fff',
-              border: 'none',
-              borderRadius: 6,
-              padding: '6px 14px',
-              fontWeight: 600,
-              fontSize: 13,
-              cursor: 'pointer',
-            }}
-          >
-            + New Job
-          </button>
+      {/* Toolbar */}
+      <div style={toolbarStyle}>
+        <select
+          value={trenchFilter}
+          onChange={e => setTrenchFilter(e.target.value)}
+          style={selectStyle}
+        >
+          <option>All Trenches</option>
+          {trenches.map(t => <option key={t}>{t}</option>)}
+        </select>
 
-          <button
-            onClick={handlePush}
-            disabled={pushState === 'pushing' || !online}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              background: T.colBg,
-              border: `1px solid ${T.border}`,
-              borderRadius: 20,
-              padding: '4px 12px',
-              fontSize: 12,
-              fontWeight: 500,
-              color: T.textSub,
-              cursor: pushState === 'pushing' || !online ? 'default' : 'pointer',
-              opacity: !online ? 0.5 : 1,
-            }}
-          >
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: dotColor,
-                flexShrink: 0,
-              }}
-            />
-            {pushLabel}
-          </button>
+        {trenchFilter !== 'All Trenches' && (
+          <span style={filterChip}>
+            {trenchFilter}
+            <button onClick={() => setTrenchFilter('All Trenches')} style={chipClear} title="Clear filter">✕</button>
+          </span>
+        )}
+
+        <span style={{ fontSize: 13, color: T.textMuted }}>
+          {filtered.length} job{filtered.length !== 1 ? 's' : ''}
+          {trenchFilter !== 'All Trenches' && ` of ${jobs.length}`}
+        </span>
+
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button onClick={loadJobs} style={refreshBtn}>↻ Refresh</button>
+          <button onClick={() => setShowCreate(true)} style={addBtn}>+ New Job</button>
         </div>
       </div>
 
       {/* Board */}
-      <div style={{ padding: 20 }}>
+      <div style={{ padding: '0 24px 32px' }}>
         <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
@@ -302,7 +238,7 @@ export default function App() {
           onDragEnd={handleDragEnd}
           onDragCancel={() => { setActiveJob(null); setOverColumn(null) }}
         >
-          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 12 }}>
             {FIELD_STAGES.map(stage => (
               <KanbanColumn
                 key={stage}
@@ -327,4 +263,73 @@ export default function App() {
       )}
     </div>
   )
+}
+
+const headerStyle: React.CSSProperties = {
+  background: T.surface,
+  borderBottom: `1px solid ${T.border}`,
+  padding: '14px 24px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  position: 'sticky',
+  top: 0,
+  zIndex: 100,
+}
+
+const toolbarStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  padding: '12px 24px',
+  flexWrap: 'wrap',
+}
+
+const queueBadge: React.CSSProperties = {
+  fontSize: 11,
+  background: '#fef3c7',
+  color: '#92400e',
+  border: '1px solid #fcd34d',
+  borderRadius: 10,
+  padding: '1px 8px',
+}
+
+const pushPill: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  padding: '6px 12px',
+  borderRadius: 20,
+  border: `1px solid ${T.border}`,
+  background: T.surface,
+  fontSize: 12,
+  fontWeight: 600,
+  color: T.textSub,
+}
+
+const selectStyle: React.CSSProperties = {
+  padding: '7px 12px', borderRadius: 6, border: `1px solid ${T.inputBorder}`,
+  fontSize: 14, background: T.inputBg, color: T.text, cursor: 'pointer', outline: 'none',
+}
+
+const filterChip: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 6,
+  background: T.chipBg, color: T.chipText, borderRadius: 20,
+  padding: '3px 10px 3px 12px', fontSize: 13, fontWeight: 600,
+}
+
+const chipClear: React.CSSProperties = {
+  background: 'none', border: 'none', cursor: 'pointer',
+  color: T.chipText, padding: 0, fontSize: 12, lineHeight: 1,
+  display: 'flex', alignItems: 'center',
+}
+
+const refreshBtn: React.CSSProperties = {
+  padding: '7px 14px', borderRadius: 6, border: `1px solid ${T.border}`,
+  background: T.surface, cursor: 'pointer', fontSize: 14, color: T.textSub,
+}
+
+const addBtn: React.CSSProperties = {
+  padding: '7px 14px', borderRadius: 6, border: 'none',
+  background: T.accent, color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 14,
 }
