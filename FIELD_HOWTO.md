@@ -104,8 +104,8 @@ source .venv/bin/activate
 #Install dependencies
 pip install -r requirements.txt
 
-# Run the backend
-uvicorn backend.main:app --reload
+# Run the backend (port 8001 — avoids clash with tarp-lab on 8000)
+uvicorn backend.main:app --reload --port 8001
 
 # Run the frontend dev server (hot reload)
 cd frontend && npm run dev
