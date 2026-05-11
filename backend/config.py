@@ -30,9 +30,9 @@ class Config:
         self.base_path: str = default_path or raw.get("base_path", "C:\\Users\\Field")
         stage_cfg = raw.get("stage_folders", {})
         self.stage_folders = {
-            "not_started": stage_cfg.get("not_started", "Not Started"),
+            "raw_images": stage_cfg.get("raw_images", "Raw Images"),
             "aligned": stage_cfg.get("aligned", "Aligned"),
-            "move_to_msi": stage_cfg.get("move_to_msi", "Move to MSI"),
+            "moved_to_msi": stage_cfg.get("moved_to_msi", "Moved to MSI"),
         }
         self.gsheets_spreadsheet_id: str = raw.get("gsheets_spreadsheet_id", "")
         self.host: str = raw.get("host", "127.0.0.1")

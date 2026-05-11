@@ -5,7 +5,7 @@ __pycache__/
 credentials.json
 token.json
 tarp-field.log
-backend/static/
+# backend/static/ — committed so the app runs without npm
 frontend/node_modules/
 frontend/dist/
 .venv/

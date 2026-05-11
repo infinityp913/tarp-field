@@ -40,11 +40,33 @@ The board shows all photogrammetry jobs as cards in three columns:
 
 | Column | Meaning |
 |---|---|
-| **Not Started** | Job folder created, waiting for field capture |
-| **Aligned** | Alignment script has run |
-| **Move to MSI** | Ready for the lab — the folder is renamed automatically so the MSI machine picks it up |
+| **Raw Images** | Job folder created; raw images captured but not yet aligned |
+| **Aligned (Preliminary)** | Preliminary low alignment has been run in Metashape |
+| **Moved to MSI** | Folder has been copied to the hard disk and handed off to the Lab — when you drag the Pgram card to this column,the folder is renamed automatically with a `_MOVED_TO_MSI` suffix and moved to the Moved to MSI folder on the Field Laptop|
 
-**Moving a job:** click and drag a card to the next column.
+**Moving a job:** click and drag a card to the next column. You can only move one step forward at a time (or any step backward).
+
+---
+
+## Standard workflow per job
+
+### 1. Capture raw images
+Images are captured and placed in the job folder inside **Raw Images**. The card appears on the board automatically.
+
+### 2. Run preliminary low alignment in Metashape
+Open the job in Metashape and run a preliminary low-quality alignment to verify the capture is usable.
+
+After the alignment runs successfully, **drag the job card from Raw Images to Aligned** on the dashboard. This moves the folder on disk from `Raw Images/` to `Aligned/`.
+
+### 3. Copy the folder to the hard disk
+Copy the aligned job folder (from the `Aligned/` directory on the Alienware) to the hard disk that will be taken to the Lab (MSI machine). Do this **before** marking it as Moved to MSI.
+
+### 4. Mark as Moved to MSI
+Once the folder is safely on the hard disk, **drag the card from Aligned to Moved to MSI** on the dashboard.
+
+This renames the folder on the Alienware with a `_MOVED_TO_MSI` suffix (e.g. `Pgram_Job_696_SU016_MOVED_TO_MSI`) and moves it to the `Moved to MSI/` directory. The Lab machine uses this suffix to identify which jobs to pick up.
+
+> **Important:** only drag to Moved to MSI after the copy to the hard disk is complete. Once you drag it, the folder is renamed and the Lab considers it handed off.
 
 ---
 
@@ -56,13 +78,19 @@ Click any job card to open it. A notes area will appear — type anything releva
 - Drone vs. handheld capture
 - Anything unusual about the conditions
 
-Click anywhere outside the card when you're done. Notes save automatically and will appear on the Lab dashboard within 5 minutes.
+Click anywhere outside the card when you're done. Notes save automatically and are pushed to Google Sheets within 5 minutes (or immediately if you click **Push to Sheet**).
 
 ---
 
 ## Push button
 
-The **Push** button in the header sends all current job states to Google Sheets immediately, without waiting for the 60-second auto-sync. Use it after making several changes to make sure the lab has the latest data right away.
+The **Push to Sheet** button in the header sends all current job states to Google Sheets immediately. The dashboard also auto-pushes every 5 minutes — you don't usually need to click it. Use it when you want the Lab to see your latest changes right away.
+
+---
+
+## Re-authentication
+
+If a red warning banner appears at the top saying the Google Sheets token was revoked, click **Re-authenticate**. A browser window will open — sign in with the same Google account and click Allow. The connection will restore automatically.
 
 ---
 
@@ -70,10 +98,9 @@ The **Push** button in the header sends all current job states to Google Sheets 
 
 If the Alienware loses WiFi:
 
-- A **red dot** appears in the top-right corner — the app keeps working normally
-- Any changes you make are saved locally and queued
+- A **"queued" badge** appears next to the title — the app keeps working normally
+- Any moves you make are saved locally and queued
 - When the connection returns, everything syncs automatically
-- You don't need to do anything — just wait for the dot to turn green
 
 ---
 
@@ -82,17 +109,25 @@ If the Alienware loses WiFi:
 | Problem | What to check |
 |---|---|
 | Dashboard doesn't open | Make sure the black command window is still open. Try going to http://127.0.0.1:8001 manually. |
-| No jobs showing on the board | The stage folders may not be found. Check that the `tarp-field` folder is configured correctly (ask Ananth). |
-| Red dot — offline | Check WiFi; the app will retry automatically. |
+| No jobs showing on the board | The stage folders may not be found. Check that `Raw Images`, `Aligned`, and `Moved to MSI` folders exist in the configured base path (ask Ananth). |
+| "queued" badge — offline | Check WiFi; the app will retry automatically. |
 | "Authorisation failed" on first run | Make sure `credentials.json` is in the right place and try again. |
-| Notes not appearing on Lab | Hit Push, or wait for the next 60 s auto-sync. |
-| Move to MSI fails | Check the folder isn't open in another application. |
+| Red auth banner | Click **Re-authenticate** and sign in again. |
+| Notes not appearing on Lab | Click Push to Sheet, or wait for the next 5-minute auto-push. |
+| Moved to MSI fails | Check the folder isn't open in Metashape or Explorer. Close it and try again. |
 
 ---
 
 ## For developers (Mac setup)
 
 ```bash
+# Clone the repo and navigate to the folder
+git clone <repo-url> && cd tarp-field
+
+# Create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate  
+
 # Install dependencies
 pip install -r requirements.txt
 
@@ -103,4 +138,4 @@ python3 -m backend.main --dev
 cd frontend && npm run dev
 ```
 
-Set `dev_base_path` in `config.yaml` to a local test folder that mirrors the stage-folder structure.
+Set `dev_base_path` in `config.yaml` to a local test folder that mirrors the stage-folder structure (`Raw Images/`, `Aligned/`, `Moved to MSI/`).

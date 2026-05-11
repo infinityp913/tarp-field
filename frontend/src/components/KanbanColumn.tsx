@@ -9,12 +9,18 @@ interface Props {
   label: string
   jobs: FieldJob[]
   isOver: boolean
+  isValidTarget?: boolean
   online: boolean
+  unpushedJobIds: Set<string>
   onNotesUpdated: (jobId: string, notes: string) => void
+  onSUUpdated: (jobId: string, su_opened: string, su_closed: string) => void
+  onMarkUnpushed: (jobId: string) => void
 }
 
-export function KanbanColumn({ stage, label, jobs, isOver, online, onNotesUpdated }: Props) {
+export function KanbanColumn({ stage, label, jobs, isOver, isValidTarget = true, online, unpushedJobIds, onNotesUpdated, onSUUpdated, onMarkUnpushed }: Props) {
   const { setNodeRef } = useDroppable({ id: stage })
+
+  const invalidHover = isOver && !isValidTarget
 
   return (
     <div
@@ -22,10 +28,11 @@ export function KanbanColumn({ stage, label, jobs, isOver, online, onNotesUpdate
         flex: 1,
         minWidth: 240,
         maxWidth: 380,
-        background: isOver ? T.colBgOver : T.colBg,
+        background: invalidHover ? '#fef2f2' : isOver ? T.colBgOver : T.colBg,
         borderRadius: 10,
         padding: '12px 10px',
-        transition: 'background 0.15s',
+        border: invalidHover ? '2px dashed #ef4444' : '2px solid transparent',
+        transition: 'background 0.15s, border-color 0.15s',
         display: 'flex',
         flexDirection: 'column',
         minHeight: 200,
@@ -53,7 +60,10 @@ export function KanbanColumn({ stage, label, jobs, isOver, online, onNotesUpdate
               key={job.job_id}
               job={job}
               online={online}
+              isUnpushed={unpushedJobIds.has(job.job_id)}
               onNotesUpdated={onNotesUpdated}
+              onSUUpdated={onSUUpdated}
+              onMarkUnpushed={onMarkUnpushed}
             />
           ))}
         </SortableContext>

@@ -79,6 +79,39 @@ async function _push(): Promise<{ pushed: number }> {
   return _fetch('/api/field/push', { method: 'POST' })
 }
 
+export async function updateSU(
+  jobId: string,
+  su_opened: string,
+  su_closed: string,
+): Promise<FieldJob> {
+  return _fetch(`/api/field/jobs/${encodeURIComponent(jobId)}/su`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ su_opened, su_closed }),
+  })
+}
+
+export async function fetchSheetUrl(): Promise<string | null> {
+  try {
+    const data = await _fetch<{ sheet_url: string | null }>('/api/field/sheet-url')
+    return data.sheet_url
+  } catch {
+    return null
+  }
+}
+
+export async function fetchAuthStatus(): Promise<{ auth_error: boolean; has_credentials: boolean }> {
+  try {
+    return await _fetch('/api/field/auth-status')
+  } catch {
+    return { auth_error: false, has_credentials: false }
+  }
+}
+
+export async function triggerReauth(): Promise<void> {
+  await _fetch('/api/field/auth', { method: 'POST' })
+}
+
 // -------------------------------------------------------------------
 // Offline-aware wrappers — queue on failure, replay on reconnect
 // -------------------------------------------------------------------

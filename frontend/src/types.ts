@@ -1,4 +1,4 @@
-export type FieldStage = 'not_started' | 'aligned' | 'move_to_msi'
+export type FieldStage = 'raw_images' | 'aligned' | 'moved_to_msi'
 
 export interface FieldJob {
   job_id: string
@@ -6,13 +6,15 @@ export interface FieldJob {
   trench: string
   stage: FieldStage
   notes: string
+  su_opened: string
+  su_closed: string
   last_updated: string
 }
 
 export const STAGE_LABELS: Record<FieldStage, string> = {
-  not_started: 'Not Started',
-  aligned: 'Aligned',
-  move_to_msi: 'Move to MSI',
+  raw_images: 'Raw Images',
+  aligned: 'Aligned (Preliminary)',
+  moved_to_msi: 'Moved to MSI',
 }
 
-export const FIELD_STAGES: FieldStage[] = ['not_started', 'aligned', 'move_to_msi']
+export const FIELD_STAGES: FieldStage[] = ['raw_images', 'aligned', 'moved_to_msi']

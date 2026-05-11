@@ -41,6 +41,16 @@ def health():
     return {"status": "ok", "sheets": gsheets.is_available()}
 
 
+@app.post("/api/shutdown")
+def shutdown():
+    import os, signal, threading, time
+    def _kill():
+        time.sleep(0.3)
+        os.kill(os.getpid(), signal.SIGTERM)
+    threading.Thread(target=_kill, daemon=True).start()
+    return {"ok": True}
+
+
 # Serve built React app
 if (STATIC_DIR / "assets").exists():
     app.mount("/assets", StaticFiles(directory=str(STATIC_DIR / "assets")), name="assets")

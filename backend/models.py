@@ -2,7 +2,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from pydantic import BaseModel
 
-FIELD_STAGES = ["not_started", "aligned", "move_to_msi"]
+FIELD_STAGES = ["raw_images", "aligned", "moved_to_msi"]
 
 JOB_PATTERN_RE = r"^Pgram_Job_(\d+)(?:_(.+))?$"
 
@@ -15,6 +15,8 @@ class FieldJob(BaseModel):
     trench: str = ""
     stage: str
     notes: str = ""
+    su_opened: str = ""
+    su_closed: str = ""
     last_updated: str = ""
 
     @property
@@ -27,9 +29,9 @@ class FieldJob(BaseModel):
     @classmethod
     def stage_label(cls, stage: str) -> str:
         return {
-            "not_started": "Not Started",
+            "raw_images": "Raw Images",
             "aligned": "Aligned",
-            "move_to_msi": "Move to MSI",
+            "moved_to_msi": "Moved to MSI",
         }.get(stage, stage)
 
 
@@ -39,6 +41,11 @@ class MoveStageRequest(BaseModel):
 
 class UpdateNotesRequest(BaseModel):
     notes: str
+
+
+class UpdateSURequest(BaseModel):
+    su_opened: str = ""
+    su_closed: str = ""
 
 
 class CreateJobRequest(BaseModel):

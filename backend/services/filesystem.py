@@ -1,8 +1,8 @@
 """
 Field filesystem service — scans and moves Pgram_Job_### folders between
-three stage directories: Not Started, Aligned, Move to MSI.
+three stage directories: Raw Images, Aligned, Moved to MSI.
 
-Moving to move_to_msi renames the folder with the _MOVED_TO_MSI suffix so
+Moving to moved_to_msi renames the folder with the _MOVED_TO_MSI suffix so
 the Lab machine can identify it on the shared drive.
 """
 
@@ -37,6 +37,25 @@ def _parse_job_dir(name: str, stage: str) -> Optional[FieldJob]:
     return FieldJob(job_id=job_id, su_string=su_string, trench=trench, stage=stage)
 
 
+def _iter_job_dirs(stage_dir: Path, stage_key: str) -> list[FieldJob]:
+    """Yield jobs from stage_dir, looking one level deep for trench subfolders."""
+    jobs = []
+    for entry in sorted(stage_dir.iterdir()):
+        if not entry.is_dir():
+            continue
+        job = _parse_job_dir(entry.name, stage_key)
+        if job:
+            jobs.append(job)
+        elif entry.name.startswith("Trench "):
+            for sub in sorted(entry.iterdir()):
+                if not sub.is_dir():
+                    continue
+                job = _parse_job_dir(sub.name, stage_key)
+                if job:
+                    jobs.append(job)
+    return jobs
+
+
 def scan_all_jobs() -> list[FieldJob]:
     cfg = get_config()
     base = Path(cfg.base_path)
@@ -46,12 +65,7 @@ def scan_all_jobs() -> list[FieldJob]:
         stage_dir = base / folder_name
         if not stage_dir.exists():
             continue
-        for entry in sorted(stage_dir.iterdir()):
-            if not entry.is_dir():
-                continue
-            job = _parse_job_dir(entry.name, stage_key)
-            if job:
-                jobs.append(job)
+        jobs.extend(_iter_job_dirs(stage_dir, stage_key))
 
     return jobs
 
@@ -64,7 +78,7 @@ def get_job(job_id: str) -> Optional[FieldJob]:
 
 
 def _find_job_path(job_id: str) -> Optional[tuple[Path, str]]:
-    """Return (path, stage_key) for the first matching folder."""
+    """Return (path, stage_key) for the first matching folder (flat or trench-nested)."""
     cfg = get_config()
     base = Path(cfg.base_path)
     for stage_key, folder_name in cfg.stage_folders.items():
@@ -77,13 +91,20 @@ def _find_job_path(job_id: str) -> Optional[tuple[Path, str]]:
             parsed = _parse_job_dir(entry.name, stage_key)
             if parsed and parsed.job_id == job_id:
                 return entry, stage_key
+            if entry.name.startswith("Trench "):
+                for sub in sorted(entry.iterdir()):
+                    if not sub.is_dir():
+                        continue
+                    parsed = _parse_job_dir(sub.name, stage_key)
+                    if parsed and parsed.job_id == job_id:
+                        return sub, stage_key
     return None
 
 
 def create_job(job_id: str, su_string: str = "") -> FieldJob:
     cfg = get_config()
     base = Path(cfg.base_path)
-    stage_key = "not_started"
+    stage_key = "raw_images"
     stage_dir = base / cfg.stage_folders[stage_key]
     stage_dir.mkdir(parents=True, exist_ok=True)
 
@@ -100,7 +121,7 @@ def create_job(job_id: str, su_string: str = "") -> FieldJob:
 
 
 def move_job(job_id: str, target_stage: str) -> FieldJob:
-    """Move a job folder to target_stage. Moving to move_to_msi appends _MOVED_TO_MSI."""
+    """Move a job folder to target_stage inside its trench subfolder. Moving to moved_to_msi appends _MOVED_TO_MSI."""
     cfg = get_config()
     base = Path(cfg.base_path)
 
@@ -109,17 +130,22 @@ def move_job(job_id: str, target_stage: str) -> FieldJob:
         raise FileNotFoundError(f"No folder found for {job_id}")
     src_path, current_stage = result
 
-    dest_dir = base / cfg.stage_folders[target_stage]
-    dest_dir.mkdir(parents=True, exist_ok=True)
-
     # Strip any existing MSI suffix before constructing new name
     clean_name = src_path.name
     if clean_name.upper().endswith(_MSI_SUFFIX.upper()):
         clean_name = clean_name[: -len(_MSI_SUFFIX)]
 
-    new_name = clean_name + (_MSI_SUFFIX if target_stage == "move_to_msi" else "")
-    dest = dest_dir / new_name
+    new_name = clean_name + (_MSI_SUFFIX if target_stage == "moved_to_msi" else "")
 
+    # Preserve trench subfolder if the source is inside one
+    stage_root = base / cfg.stage_folders[target_stage]
+    if src_path.parent.name.startswith("Trench "):
+        dest_dir = stage_root / src_path.parent.name
+    else:
+        dest_dir = stage_root
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    dest = dest_dir / new_name
     if dest.exists():
         raise FileExistsError(f"Destination already exists: {dest}")
 

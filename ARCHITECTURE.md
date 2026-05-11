@@ -83,10 +83,10 @@ Jobs live as folders on disk inside stage directories:
 
 ```
 base_path/
-├── Not Started/
+├── Raw Images/
 │   └── Pgram_Job_696_SU16014/
 ├── Aligned/
-└── Move to MSI/
+└── Moved to MSI/
     └── Pgram_Job_695_SU16013_MOVED_TO_MSI/
 ```
 
@@ -96,7 +96,7 @@ Dragging a card to a new column **physically moves the folder** on disk. The boa
 
 ### Folder naming
 
-Folders must match `Pgram_Job_###` or `Pgram_Job_###_<anything>`. Moving a card to **Move to MSI** appends `_MOVED_TO_MSI` to the folder name. The Lab machine's filesystem scanner strips this suffix before parsing, so it can identify and pick up the job.
+Folders must match `Pgram_Job_###` or `Pgram_Job_###_<anything>`. Moving a card to **Moved to MSI** appends `_MOVED_TO_MSI` to the folder name. The Lab machine's filesystem scanner strips this suffix before parsing, so it can identify and pick up the job.
 
 ---
 
@@ -128,7 +128,7 @@ If the Alienware loses WiFi, the frontend queues all actions (stage moves, notes
 ## Request flow — drag a card
 
 ```
-User drags Pgram_Job_696 from "Not Started" to "Aligned"
+User drags Pgram_Job_696 from "Raw Images" to "Aligned"
   │
   ├─ React: optimistic UI update (card moves instantly)
   │
@@ -154,7 +154,7 @@ Push to Sheet is a separate explicit action — stage moves do **not** auto-push
 | SU tracking | Yes (separate tab) | No |
 | Offline queue | No | Yes (localStorage) |
 | Theme | Dark | Light |
-| MSI suffix | Stripped on read | Appended on Move to MSI |
+| MSI suffix | Stripped on read | Appended on Moved to MSI |
 
 ---
 

@@ -1,18 +1,23 @@
 from fastapi import APIRouter, HTTPException
 
-from backend.models import FieldJob, MoveStageRequest, UpdateNotesRequest, CreateJobRequest, FIELD_STAGES
+from backend.models import FieldJob, MoveStageRequest, UpdateNotesRequest, UpdateSURequest, CreateJobRequest, FIELD_STAGES
 from backend.services import filesystem, gsheets
+from backend.config import get_config, CREDENTIALS_PATH, TOKEN_PATH
 
 router = APIRouter(prefix="/api/field")
 
-# In-memory notes store (keyed by job_id) — persists notes between scans within a session.
-# Notes are also written to Google Sheets on push.
+# In-memory stores (keyed by job_id) — survive between scans within a session.
+# Authoritative copy is Google Sheets after a push.
 _notes: dict[str, str] = {}
+_su_opened: dict[str, str] = {}
+_su_closed: dict[str, str] = {}
 
 
 def _enrich(job: FieldJob) -> dict:
     d = job.model_dump()
     d["notes"] = _notes.get(job.job_id, job.notes)
+    d["su_opened"] = _su_opened.get(job.job_id, job.su_opened)
+    d["su_closed"] = _su_closed.get(job.job_id, job.su_closed)
     return d
 
 
@@ -55,6 +60,49 @@ def update_notes(job_id: str, req: UpdateNotesRequest):
     return _enrich(job)
 
 
+@router.put("/jobs/{job_id}/su")
+def update_su(job_id: str, req: UpdateSURequest):
+    job = filesystem.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+    _su_opened[job_id] = req.su_opened
+    _su_closed[job_id] = req.su_closed
+    return _enrich(job)
+
+
+@router.get("/sheet-url")
+def sheet_url():
+    cfg = get_config()
+    sid = cfg.gsheets_spreadsheet_id
+    if not sid or sid in ("", "YOUR_SPREADSHEET_ID_HERE"):
+        return {"sheet_url": None}
+    return {"sheet_url": f"https://docs.google.com/spreadsheets/d/{sid}"}
+
+
+@router.get("/auth-status")
+def auth_status():
+    available = gsheets.is_available()
+    auth_error = CREDENTIALS_PATH.exists() and TOKEN_PATH.exists() and not available
+    return {
+        "available": available,
+        "has_credentials": CREDENTIALS_PATH.exists(),
+        "has_token": TOKEN_PATH.exists(),
+        "auth_error": auth_error,
+    }
+
+
+@router.post("/auth")
+def reauth():
+    """Delete the stale token and re-run the OAuth browser flow on the server machine."""
+    if not CREDENTIALS_PATH.exists():
+        raise HTTPException(status_code=503, detail="credentials.json not found — cannot authenticate.")
+    try:
+        gsheets.run_auth_flow()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Auth failed: {e}")
+    return {"ok": True}
+
+
 @router.post("/push")
 def push_to_sheets():
     """Push all current job states to Google Sheets (targeted upserts — no full_sync)."""
@@ -64,6 +112,8 @@ def push_to_sheets():
     errors: list[str] = []
     for job in jobs:
         job.notes = _notes.get(job.job_id, "")
+        job.su_opened = _su_opened.get(job.job_id, "")
+        job.su_closed = _su_closed.get(job.job_id, "")
         try:
             gsheets.upsert_pgram(job)
         except Exception as e:
