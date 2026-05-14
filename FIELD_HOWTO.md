@@ -18,6 +18,25 @@ To close the dashboard, close the black command window.
 
 You only need to do this once.
 
+### Step 0 — Get the code onto this machine
+
+**Install Python** (if not already installed):
+1. Go to [python.org/downloads](https://www.python.org/downloads/) and download the latest Python 3 installer.
+2. Run the installer. On the first screen, **tick "Add Python to PATH"** before clicking Install Now.
+
+**Clone the repository:**
+1. Open Command Prompt (press `Win + R`, type `cmd`, press Enter).
+2. Run the following commands — this clones the repo to your Desktop and installs all dependencies:
+   ```
+   cd %USERPROFILE%\Desktop
+   git clone https://github.com/infinityp913/tarp-field.git
+   cd tarp-field
+   pip install -r requirements.txt
+   ```
+3. Close Command Prompt. You should now see a `tarp-field` folder on your Desktop.
+
+> If `git` is not recognised, download and install Git from [git-scm.com](https://git-scm.com/download/win), then reopen Command Prompt and repeat the commands above.
+
 ### Step 1 — Get access to the Google Sheet
 
 Ask **Ananth** to share the [TARP tracking Google Sheet](https://docs.google.com/spreadsheets/d/1r6TMtVEl6wIAAO8FNEXW1qkkFeAxumyyRsFSE4vHIwI/edit?gid=1174152009#gid=1174152009) for the current season with your Google account. You need edit access.
