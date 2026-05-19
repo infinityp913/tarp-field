@@ -43,7 +43,27 @@ Ask **Ananth** to share the [TARP tracking Google Sheet](https://docs.google.com
 
 Ask **Ananth** for the `credentials.json` file and place it inside the `tarp-field` folder (the same folder where `start.bat` is). Do not rename the file.
 
-### Step 3 — Authorise the app
+### Step 3 — Set up the stage folders
+
+The dashboard expects three folders to exist on this machine before it can show any jobs. You only need to create them once (at the start of each season, or whenever a fresh machine is set up).
+
+1. Open **File Explorer** (the yellow folder icon on the taskbar).
+2. In the address bar at the top, type `C:\Users\Field` and press **Enter**.
+3. Inside that folder, create these three folders — names must be **exact**, including spaces and capitals:
+
+| Folder name | Purpose |
+|---|---|
+| `Raw Images` | Where job folders land after image capture |
+| `Aligned` | Where jobs go after preliminary alignment in Metashape |
+| `Moved to MSI` | Where jobs land after being handed off to the Lab |
+
+**To create each folder:** right-click an empty area inside `C:\Users\Field` → **New → Folder** → type the name exactly as shown above → press Enter.
+
+When you're done, `C:\Users\Field` should contain exactly these three folders (plus anything else already there). The dashboard will not show any jobs until all three exist.
+
+> **Check the base path in `config.yaml`:** Open the `tarp-field` folder and open `config.yaml` in Notepad. The `base_path` line must point to the folder that *contains* the three folders above — on this machine it should read `base_path: "C:\\Users\\Field"`. If the Alienware stores files somewhere else (e.g. a different drive or user account), update that line to match, save the file, and re-run `start.bat`.
+
+### Step 4 — Authorise the app
 
 The next time you double-click `start.bat`, a browser window will open asking you to sign in to Google and grant access. Use the Google account that Ananth shared the sheet with, then click **Allow**.
 
