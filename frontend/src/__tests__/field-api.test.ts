@@ -1,8 +1,12 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { queueDepth } from '../api/field'
 
 beforeEach(() => {
   localStorage.clear()
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 describe('queueDepth', () => {
@@ -70,7 +74,45 @@ describe('replayQueue', () => {
     const count = await replayQueue()
     expect(count).toBe(0)
     expect(queueDepth()).toBe(1) // still in queue
+  })
+})
 
-    vi.unstubAllGlobals()
+describe('fetchIgnoredFolders', () => {
+  it('returns parsed folder list on success', async () => {
+    const { fetchIgnoredFolders } = await import('../api/field')
+    const mockFolders = [
+      { name: 'PreSU17001', stage: 'raw_images', parent: '' },
+      { name: 'BadChild', stage: 'aligned', parent: 'Trench 17000' },
+    ]
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockFolders,
+    } as Response))
+
+    const result = await fetchIgnoredFolders()
+    expect(result).toHaveLength(2)
+    expect(result[0]).toMatchObject({ name: 'PreSU17001', stage: 'raw_images', parent: '' })
+    expect(result[1]).toMatchObject({ name: 'BadChild', parent: 'Trench 17000' })
+  })
+
+  it('returns empty array when fetch fails (offline-safe)', async () => {
+    const { fetchIgnoredFolders } = await import('../api/field')
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')))
+
+    const result = await fetchIgnoredFolders()
+    expect(result).toEqual([])
+  })
+
+  it('returns empty array when server returns an error status', async () => {
+    const { fetchIgnoredFolders } = await import('../api/field')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+      text: async () => 'Internal Server Error',
+    } as Response))
+
+    const result = await fetchIgnoredFolders()
+    expect(result).toEqual([])
   })
 })

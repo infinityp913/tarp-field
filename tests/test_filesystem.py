@@ -126,3 +126,122 @@ def test_scan_ignored_folders_hidden_not_flagged(monkeypatch, tmp_path):
     from backend.services.filesystem import scan_ignored_folders
     ignored = scan_ignored_folders()
     assert not any(f.name.startswith(".") for f in ignored)
+
+
+def test_scan_ignored_folders_hidden_trench_child_not_flagged(monkeypatch, tmp_path):
+    """Hidden folders nested inside a Trench folder must not be flagged."""
+    stage = tmp_path / "Raw Images"
+    trench = stage / "Trench 17000"
+    trench.mkdir(parents=True)
+    (trench / ".hidden_child").mkdir()
+    _patch_config(monkeypatch, tmp_path)
+
+    from backend.services.filesystem import scan_ignored_folders
+    ignored = scan_ignored_folders()
+    assert not any(f.name.startswith(".") for f in ignored)
+
+
+def test_scan_ignored_folders_nonexistent_stage_skipped(monkeypatch, tmp_path):
+    """Stages whose directories don't exist on disk should be silently skipped."""
+    # Only create Raw Images; Aligned and Moved to MSI are absent.
+    stage = tmp_path / "Raw Images"
+    stage.mkdir(parents=True)
+    (stage / "NotAJob").mkdir()
+    _patch_config(monkeypatch, tmp_path)
+
+    from backend.services.filesystem import scan_ignored_folders
+    ignored = scan_ignored_folders()
+    # Only one ignored folder — from Raw Images
+    assert len(ignored) == 1
+    assert ignored[0].name == "NotAJob"
+    assert ignored[0].stage == "raw_images"
+
+
+def test_scan_ignored_folders_stage_field_correct(monkeypatch, tmp_path):
+    """Ignored folder records should carry the correct stage key, not the folder name."""
+    _make_stage_dir(tmp_path, "Aligned", ["Weird_Folder"])
+    _patch_config(monkeypatch, tmp_path)
+
+    from backend.services.filesystem import scan_ignored_folders
+    ignored = scan_ignored_folders()
+    assert any(f.name == "Weird_Folder" and f.stage == "aligned" for f in ignored)
+
+
+def test_scan_ignored_folders_file_not_flagged(monkeypatch, tmp_path):
+    """Plain files inside a stage directory must not be flagged as ignored folders."""
+    stage = tmp_path / "Raw Images"
+    stage.mkdir(parents=True)
+    (stage / "some_file.txt").write_text("data")
+    _patch_config(monkeypatch, tmp_path)
+
+    from backend.services.filesystem import scan_ignored_folders
+    ignored = scan_ignored_folders()
+    assert len(ignored) == 0
+
+
+# ---------------------------------------------------------------------------
+# IgnoredFolder model — field validation
+# ---------------------------------------------------------------------------
+
+def test_ignored_folder_model_defaults():
+    """IgnoredFolder.parent defaults to empty string."""
+    from backend.models import IgnoredFolder
+    f = IgnoredFolder(name="BadFolder", stage="aligned")
+    assert f.parent == ""
+
+
+def test_ignored_folder_model_with_parent():
+    """IgnoredFolder records parent when set."""
+    from backend.models import IgnoredFolder
+    f = IgnoredFolder(name="BadFolder", stage="raw_images", parent="Trench 17000")
+    assert f.parent == "Trench 17000"
+
+
+# ---------------------------------------------------------------------------
+# FieldJob.stage_label — classmethod coverage
+# ---------------------------------------------------------------------------
+
+def test_stage_label_known_stages():
+    from backend.models import FieldJob
+    assert FieldJob.stage_label("raw_images") == "Raw Images"
+    assert FieldJob.stage_label("aligned") == "Aligned"
+    assert FieldJob.stage_label("moved_to_msi") == "Moved to MSI"
+
+
+def test_stage_label_unknown_falls_through():
+    """Unknown stage keys are returned as-is."""
+    from backend.models import FieldJob
+    assert FieldJob.stage_label("custom_stage") == "custom_stage"
+
+
+# ---------------------------------------------------------------------------
+# /api/field/ignored-folders endpoint — HTTP integration test
+# ---------------------------------------------------------------------------
+
+def test_ignored_folders_endpoint_returns_list(monkeypatch, tmp_path):
+    """GET /api/field/ignored-folders returns a JSON list via the FastAPI router."""
+    _make_stage_dir(tmp_path, "Raw Images", ["BadFolder", "Pgram_Job_1"])
+    _patch_config(monkeypatch, tmp_path)
+
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    client = TestClient(app)
+    response = client.get("/api/field/ignored-folders")
+    assert response.status_code == 200
+    data = response.json()
+    names = [f["name"] for f in data]
+    assert "BadFolder" in names
+    assert "Pgram_Job_1" not in names
+
+
+def test_ignored_folders_endpoint_empty_when_all_valid(monkeypatch, tmp_path):
+    """GET /api/field/ignored-folders returns [] when every folder is well-named."""
+    _make_stage_dir(tmp_path, "Raw Images", ["Pgram_Job_1", "Pgram_Job_2_SU17001"])
+    _patch_config(monkeypatch, tmp_path)
+
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    client = TestClient(app)
+    response = client.get("/api/field/ignored-folders")
+    assert response.status_code == 200
+    assert response.json() == []
