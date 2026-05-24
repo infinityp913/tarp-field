@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Optional
 
 from backend.config import get_config
-from backend.models import FieldJob, JOB_PATTERN_RE, _MSI_SUFFIX
+from backend.models import FieldJob, IgnoredFolder, JOB_PATTERN_RE, _MSI_SUFFIX
 
 _JOB_RE = re.compile(JOB_PATTERN_RE, re.IGNORECASE)
 
@@ -68,6 +68,45 @@ def scan_all_jobs() -> list[FieldJob]:
         jobs.extend(_iter_job_dirs(stage_dir, stage_key))
 
     return jobs
+
+
+def scan_ignored_folders() -> list[IgnoredFolder]:
+    """Walk every stage directory and collect sub-folders whose names do NOT
+    match the Pgram_Job_### convention. These are silently skipped by
+    scan_all_jobs(); surfacing them here lets the UI warn users about
+    misnamed folders (e.g. 'PreSU17001' instead of 'Pgram_Job_123_SU17001').
+
+    Not flagged: the "Trench XXX" container folders themselves (part of the
+    documented structure — their non-conforming children are flagged with
+    parent="Trench XXX" instead), hidden folders (starting with "."), and
+    non-directory entries (files).
+    """
+    cfg = get_config()
+    base = Path(cfg.base_path)
+    ignored: list[IgnoredFolder] = []
+
+    for stage_key, folder_name in cfg.stage_folders.items():
+        stage_dir = base / folder_name
+        if not stage_dir.exists():
+            continue
+        for entry in sorted(stage_dir.iterdir()):
+            if not entry.is_dir() or entry.name.startswith("."):
+                continue
+            if _parse_job_dir(entry.name, stage_key) is not None:
+                continue
+            if entry.name.startswith("Trench "):
+                # Expected container — look one level deeper for misnamed children.
+                for sub in sorted(entry.iterdir()):
+                    if not sub.is_dir() or sub.name.startswith("."):
+                        continue
+                    if _parse_job_dir(sub.name, stage_key) is None:
+                        ignored.append(IgnoredFolder(
+                            name=sub.name, stage=stage_key, parent=entry.name,
+                        ))
+                continue
+            ignored.append(IgnoredFolder(name=entry.name, stage=stage_key))
+
+    return ignored
 
 
 def get_job(job_id: str) -> Optional[FieldJob]:

@@ -54,6 +54,17 @@ class CreateJobRequest(BaseModel):
     trench: str = ""
 
 
+class IgnoredFolder(BaseModel):
+    """A folder found in a stage directory that does not match the
+    Pgram_Job_### naming convention and is therefore not shown on the
+    board. Surfaced in the UI so users notice misnamed folders instead
+    of wondering why a folder they expected is missing.
+    """
+    name: str
+    stage: str
+    parent: str = ""  # empty for top-level; "Trench XXX" if nested
+
+
 def cet_now() -> str:
     dt = datetime.now(ZoneInfo("Europe/Rome"))
     return f"{dt.day} {dt.strftime('%b %Y, %H:%M')}"

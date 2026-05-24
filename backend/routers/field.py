@@ -27,6 +27,15 @@ def list_jobs():
     return [_enrich(j) for j in jobs]
 
 
+@router.get("/ignored-folders")
+def list_ignored_folders():
+    """Folders found under a stage directory whose names don't match the
+    Pgram_Job_### convention and are therefore not shown on the board.
+    The UI uses this to warn the user about misnamed folders.
+    """
+    return [f.model_dump() for f in filesystem.scan_ignored_folders()]
+
+
 @router.post("/jobs", status_code=201)
 def create_job(req: CreateJobRequest):
     try:
