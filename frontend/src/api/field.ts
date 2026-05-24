@@ -51,6 +51,20 @@ export async function fetchJobs(): Promise<FieldJob[]> {
   return _fetch('/api/field/jobs')
 }
 
+export type IgnoredFolder = {
+  name: string
+  stage: FieldStage
+  parent: string  // empty for top-level; "Trench XXX" if nested
+}
+
+export async function fetchIgnoredFolders(): Promise<IgnoredFolder[]> {
+  try {
+    return await _fetch<IgnoredFolder[]>('/api/field/ignored-folders')
+  } catch {
+    return []
+  }
+}
+
 async function _moveStage(jobId: string, targetStage: FieldStage): Promise<FieldJob> {
   return _fetch(`/api/field/jobs/${encodeURIComponent(jobId)}/stage`, {
     method: 'PUT',

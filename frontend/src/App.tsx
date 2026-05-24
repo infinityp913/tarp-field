@@ -14,6 +14,7 @@ import { T } from './tokens'
 import { KanbanColumn } from './components/KanbanColumn'
 import {
   fetchJobs,
+  fetchIgnoredFolders,
   moveStage,
   pushToSheets,
   replayQueue,
@@ -22,6 +23,7 @@ import {
   fetchAuthStatus,
   triggerReauth,
 } from './api/field'
+import type { IgnoredFolder } from './api/field'
 
 const FIELD_ORDER: FieldStage[] = ['raw_images', 'aligned', 'moved_to_msi']
 
@@ -76,6 +78,8 @@ export default function App() {
   const [authError, setAuthError] = useState(false)
   const [hasCredentials, setHasCredentials] = useState(false)
   const [reauthState, setReauthState] = useState<ReauthState>('idle')
+  const [ignoredFolders, setIgnoredFolders] = useState<IgnoredFolder[]>([])
+  const [ignoredDismissed, setIgnoredDismissed] = useState(false)
   const [, forceUpdate] = useState(0)
   const isPushingRef = useRef(false)
 
@@ -85,6 +89,18 @@ export default function App() {
     try {
       const data = await fetchJobs()
       setJobs(data)
+    } catch {
+      // stay with stale state
+    }
+    try {
+      const ignored = await fetchIgnoredFolders()
+      setIgnoredFolders(prev => {
+        // Re-show the banner if a new ignored folder appears.
+        const prevKey = prev.map(f => `${f.stage}|${f.parent}|${f.name}`).sort().join(',')
+        const nextKey = ignored.map(f => `${f.stage}|${f.parent}|${f.name}`).sort().join(',')
+        if (prevKey !== nextKey) setIgnoredDismissed(false)
+        return ignored
+      })
     } catch {
       // stay with stale state
     }
@@ -362,6 +378,36 @@ export default function App() {
         </div>
       )}
 
+      {ignoredFolders.length > 0 && !ignoredDismissed && (
+        <div style={ignoredBannerStyle}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e', marginBottom: 4 }}>
+              ⚠ {ignoredFolders.length} folder{ignoredFolders.length !== 1 ? 's' : ''} not shown — name does not match <code style={{ background: '#fde68a', padding: '0 4px', borderRadius: 3 }}>Pgram_Job_###</code>
+            </div>
+            <div style={{ fontSize: 12, color: '#78350f', lineHeight: 1.5 }}>
+              {ignoredFolders.slice(0, 8).map((f, i) => (
+                <span key={i}>
+                  <code style={{ background: '#fef3c7', padding: '0 4px', borderRadius: 3 }}>{f.name}</code>
+                  <span style={{ opacity: 0.7 }}> in {STAGE_LABELS[f.stage]}{f.parent && ` › ${f.parent}`}</span>
+                  {i < Math.min(ignoredFolders.length, 8) - 1 ? ', ' : ''}
+                </span>
+              ))}
+              {ignoredFolders.length > 8 && <span> … and {ignoredFolders.length - 8} more</span>}
+              <div style={{ marginTop: 4, opacity: 0.85 }}>
+                Rename to start with <code style={{ background: '#fef3c7', padding: '0 4px', borderRadius: 3 }}>Pgram_Job_</code> followed by digits (e.g. <code style={{ background: '#fef3c7', padding: '0 4px', borderRadius: 3 }}>Pgram_Job_123_SU17001</code>) and click ↻ Refresh.
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setIgnoredDismissed(true)}
+            style={ignoredDismissBtn}
+            title="Hide this warning"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Board */}
       <div style={{ padding: "0 24px 32px" }}>
         <DndContext
@@ -473,6 +519,30 @@ const chipClear: React.CSSProperties = {
 const refreshBtn: React.CSSProperties = {
   padding: '7px 14px', borderRadius: 6, border: `1px solid ${T.border}`,
   background: T.surface, cursor: 'pointer', fontSize: 14, color: T.textSub,
+}
+
+const ignoredBannerStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 12,
+  margin: '0 24px 12px',
+  padding: '12px 16px',
+  background: '#fffbeb',
+  border: '1px solid #fcd34d',
+  borderRadius: 8,
+}
+
+const ignoredDismissBtn: React.CSSProperties = {
+  background: 'transparent',
+  border: 'none',
+  color: '#92400e',
+  fontSize: 16,
+  fontWeight: 700,
+  cursor: 'pointer',
+  padding: 4,
+  lineHeight: 1,
+  flexShrink: 0,
 }
 
 const quitBtn: React.CSSProperties = {
