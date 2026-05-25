@@ -114,6 +114,7 @@ def test_scan_ignored_folders_trench_child(monkeypatch, tmp_path):
     ignored = scan_ignored_folders()
     assert any(f.name == "BadName" and f.parent == "Trench 17000" for f in ignored)
     assert not any(f.name == "Pgram_Job_5_SU17001" for f in ignored)
+    assert len([f for f in ignored if f.parent == "Trench 17000"]) == 1
 
 
 def test_scan_ignored_folders_hidden_not_flagged(monkeypatch, tmp_path):

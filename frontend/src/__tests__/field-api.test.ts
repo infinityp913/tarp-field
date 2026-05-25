@@ -55,8 +55,36 @@ describe('replayQueue', () => {
     const count = await replayQueue()
     expect(count).toBe(2)
     expect(queueDepth()).toBe(0)
+  })
 
-    vi.unstubAllGlobals()
+  it('replays queued notes updates and clears queue on success', async () => {
+    const { updateNotes, replayQueue } = await import('../api/field')
+    await updateNotes('Pgram_Job_3', 'some notes', false)
+    expect(queueDepth()).toBe(1)
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job_id: 'Pgram_Job_3', notes: 'some notes' }),
+    } as Response))
+
+    const count = await replayQueue()
+    expect(count).toBe(1)
+    expect(queueDepth()).toBe(0)
+  })
+
+  it('replays queued job creation and clears queue on success', async () => {
+    const { createJob, replayQueue } = await import('../api/field')
+    await createJob('Pgram_Job_4', 'SU17001', false)
+    expect(queueDepth()).toBe(1)
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job_id: 'Pgram_Job_4', stage: 'raw_images' }),
+    } as Response))
+
+    const count = await replayQueue()
+    expect(count).toBe(1)
+    expect(queueDepth()).toBe(0)
   })
 
   it('keeps failed items in queue when server returns error', async () => {
@@ -111,6 +139,17 @@ describe('fetchIgnoredFolders', () => {
       statusText: 'Internal Server Error',
       text: async () => 'Internal Server Error',
     } as Response))
+
+    const result = await fetchIgnoredFolders()
+    expect(result).toEqual([])
+  })
+
+  it('returns empty array when response body is not valid JSON', async () => {
+    const { fetchIgnoredFolders } = await import('../api/field')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => { throw new SyntaxError('Unexpected token') },
+    } as unknown as Response))
 
     const result = await fetchIgnoredFolders()
     expect(result).toEqual([])
