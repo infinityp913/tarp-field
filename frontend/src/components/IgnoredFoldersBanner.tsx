@@ -20,10 +20,10 @@ export function IgnoredFoldersBanner({ folders, onDismiss }: Props) {
         </div>
         <div style={{ fontSize: 12, color: '#78350f', lineHeight: 1.5 }}>
           {folders.slice(0, MAX_IGNORED_SHOWN).map((f, i) => (
-            <span key={i}>
+            <span key={`${f.stage}|${f.parent}|${f.name}`}>
               <code style={codeBadge}>{f.name}</code>
               <span style={{ opacity: 0.7 }}>
-                {' '}in {STAGE_LABELS[f.stage]}{f.parent && ` › ${f.parent}`}
+                {' '}in {STAGE_LABELS[f.stage] ?? f.stage}{f.parent && ` › ${f.parent}`}
               </span>
               {i < Math.min(folders.length, MAX_IGNORED_SHOWN) - 1 ? ', ' : ''}
             </span>

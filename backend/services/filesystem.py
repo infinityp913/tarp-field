@@ -96,7 +96,11 @@ def scan_ignored_folders() -> list[IgnoredFolder]:
                 continue
             if entry.name.startswith("Trench "):
                 # Expected container — look one level deeper for misnamed children.
-                for sub in sorted(entry.iterdir()):
+                try:
+                    trench_children = sorted(entry.iterdir())
+                except OSError:
+                    continue
+                for sub in trench_children:
                     if not sub.is_dir() or sub.name.startswith("."):
                         continue
                     if _parse_job_dir(sub.name, stage_key) is None:

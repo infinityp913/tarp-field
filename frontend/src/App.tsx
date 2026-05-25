@@ -29,7 +29,9 @@ import type { IgnoredFolder } from './api/field'
 const FIELD_ORDER: FieldStage[] = ['raw_images', 'aligned', 'moved_to_msi']
 
 function folderSetKey(folders: IgnoredFolder[]): string {
-  return folders.map(f => `${f.stage}|${f.parent}|${f.name}`).sort().join(',')
+  return JSON.stringify(
+    folders.map(f => [f.stage, f.parent, f.name]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+  )
 }
 
 function isValidFieldMove(from: FieldStage, to: FieldStage): boolean {
