@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from backend.models import FieldJob, MoveStageRequest, UpdateNotesRequest, UpdateSURequest, CreateJobRequest, FIELD_STAGES
+from backend.models import FieldJob, IgnoredFolder, MoveStageRequest, UpdateNotesRequest, UpdateSURequest, CreateJobRequest, FIELD_STAGES
 from backend.services import filesystem, gsheets
 from backend.config import get_config, CREDENTIALS_PATH, TOKEN_PATH
 
@@ -25,6 +25,15 @@ def _enrich(job: FieldJob) -> dict:
 def list_jobs():
     jobs = filesystem.scan_all_jobs()
     return [_enrich(j) for j in jobs]
+
+
+@router.get("/ignored-folders", response_model=list[IgnoredFolder])
+def list_ignored_folders():
+    """Folders found under a stage directory whose names don't match the
+    Pgram_Job_### convention and are therefore not shown on the board.
+    The UI uses this to warn the user about misnamed folders.
+    """
+    return filesystem.scan_ignored_folders()
 
 
 @router.post("/jobs", status_code=201)

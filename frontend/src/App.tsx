@@ -12,8 +12,10 @@ import type { FieldJob, FieldStage } from './types'
 import { FIELD_STAGES, STAGE_LABELS } from './types'
 import { T } from './tokens'
 import { KanbanColumn } from './components/KanbanColumn'
+import { IgnoredFoldersBanner } from './components/IgnoredFoldersBanner'
 import {
   fetchJobs,
+  fetchIgnoredFolders,
   moveStage,
   pushToSheets,
   replayQueue,
@@ -22,8 +24,15 @@ import {
   fetchAuthStatus,
   triggerReauth,
 } from './api/field'
+import type { IgnoredFolder } from './api/field'
 
 const FIELD_ORDER: FieldStage[] = ['raw_images', 'aligned', 'moved_to_msi']
+
+function folderSetKey(folders: IgnoredFolder[]): string {
+  return JSON.stringify(
+    folders.map(f => [f.stage, f.parent, f.name]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+  )
+}
 
 function isValidFieldMove(from: FieldStage, to: FieldStage): boolean {
   if (from === to) return false
@@ -76,6 +85,8 @@ export default function App() {
   const [authError, setAuthError] = useState(false)
   const [hasCredentials, setHasCredentials] = useState(false)
   const [reauthState, setReauthState] = useState<ReauthState>('idle')
+  const [ignoredFolders, setIgnoredFolders] = useState<IgnoredFolder[]>([])
+  const [ignoredDismissed, setIgnoredDismissed] = useState(false)
   const [, forceUpdate] = useState(0)
   const isPushingRef = useRef(false)
 
@@ -85,6 +96,15 @@ export default function App() {
     try {
       const data = await fetchJobs()
       setJobs(data)
+    } catch {
+      // stay with stale state
+    }
+    try {
+      const ignored = await fetchIgnoredFolders()
+      setIgnoredFolders(prev => {
+        if (folderSetKey(prev) !== folderSetKey(ignored)) setIgnoredDismissed(false)
+        return ignored
+      })
     } catch {
       // stay with stale state
     }
@@ -360,6 +380,13 @@ export default function App() {
             {reauthState === 'waiting' ? '⟳ Waiting for browser…' : '↻ Re-authenticate'}
           </button>
         </div>
+      )}
+
+      {!ignoredDismissed && (
+        <IgnoredFoldersBanner
+          folders={ignoredFolders}
+          onDismiss={() => setIgnoredDismissed(true)}
+        />
       )}
 
       {/* Board */}
