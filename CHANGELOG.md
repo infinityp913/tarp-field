@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0.1] - 2026-06-06
+
+### Fixed
+- **Drag into a non-empty column now works** — dragging a card from Raw Images onto any
+  existing card in the Aligned or Moved to MSI column correctly moves the job. Previously,
+  once a column had ~4 cards filling the visible area, dropping onto an existing card was
+  silently discarded because dnd-kit reports the nearest card's id (not the column's stage
+  key) as the drop target. `resolveDropStage()` now resolves the target stage from whichever
+  is found: the column droppable or the card under the pointer.
+- **Column hover highlight now tracks correctly when dragging over cards** — the column
+  background colour updates correctly regardless of whether the cursor is over a card or
+  the empty space below the last card.
+
+### Changed
+- `onDragOver` handler memoized with `useCallback` to avoid closure recreation on every
+  pointer-move event.
+
 ## [1.1.0.0] - 2026-05-24
 
 ### Added

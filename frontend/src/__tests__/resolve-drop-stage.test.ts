@@ -27,4 +27,9 @@ describe('resolveDropStage', () => {
     expect(resolveDropStage('Pgram_Job_999', jobs)).toBeNull()
     expect(resolveDropStage('', jobs)).toBeNull()
   })
+
+  it('handles an empty jobs array — stage keys still resolve, job_ids return null', () => {
+    expect(resolveDropStage('aligned', [])).toBe('aligned')
+    expect(resolveDropStage('Pgram_Job_001', [])).toBeNull()
+  })
 })

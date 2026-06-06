@@ -44,7 +44,8 @@ function isValidFieldMove(from: FieldStage, to: FieldStage): boolean {
 // over.id from dnd-kit is the stage key when dropping on the column droppable
 // area, or a job_id when dropping on a card (SortableContext reports the nearest
 // sortable item). Resolve to the correct stage in both cases.
-export function resolveDropStage(overId: string, jobs: FieldJob[]): FieldStage | null {
+export function resolveDropStage(overId: string | number, jobs: FieldJob[]): FieldStage | null {
+  if (typeof overId !== 'string') return null
   if (FIELD_STAGES.includes(overId as FieldStage)) return overId as FieldStage
   return jobs.find(j => j.job_id === overId)?.stage ?? null
 }
@@ -196,6 +197,10 @@ export default function App() {
   function handleDragStart(e: DragStartEvent) {
     setActiveJob(jobs.find(j => j.job_id === e.active.id) ?? null)
   }
+
+  const handleDragOver = useCallback((e: { over: { id: unknown } | null }) => {
+    setOverColumn(e.over ? resolveDropStage(e.over.id as string, jobs) : null)
+  }, [jobs])
 
   async function handleDragEnd(e: DragEndEvent) {
     setActiveJob(null)
@@ -403,9 +408,7 @@ export default function App() {
         <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
-          onDragOver={(e) => {
-            setOverColumn(e.over ? resolveDropStage(e.over.id as string, jobs) : null)
-          }}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
           onDragCancel={() => {
             setActiveJob(null);
