@@ -41,6 +41,15 @@ function isValidFieldMove(from: FieldStage, to: FieldStage): boolean {
   return ti < fi || ti === fi + 1
 }
 
+// over.id from dnd-kit is the stage key when dropping on the column droppable
+// area, or a job_id when dropping on a card (SortableContext reports the nearest
+// sortable item). Resolve to the correct stage in both cases.
+export function resolveDropStage(overId: string | number, jobs: FieldJob[]): FieldStage | null {
+  if (typeof overId !== 'string') return null
+  if (FIELD_STAGES.includes(overId as FieldStage)) return overId as FieldStage
+  return jobs.find(j => j.job_id === overId)?.stage ?? null
+}
+
 async function handleQuit() {
   if (!window.confirm('Shut down the TARP Field server and close the app?')) return
   await fetch('/api/shutdown', { method: 'POST' }).catch(() => {})
@@ -189,13 +198,18 @@ export default function App() {
     setActiveJob(jobs.find(j => j.job_id === e.active.id) ?? null)
   }
 
+  const handleDragOver = useCallback((e: { over: { id: unknown } | null }) => {
+    setOverColumn(e.over ? resolveDropStage(e.over.id as string, jobs) : null)
+  }, [jobs])
+
   async function handleDragEnd(e: DragEndEvent) {
     setActiveJob(null)
     setOverColumn(null)
     const { active, over } = e
     if (!over) return
     const jobId = active.id as string
-    const targetStage = over.id as FieldStage
+    const targetStage = resolveDropStage(over.id as string, jobs)
+    if (!targetStage) return
     const job = jobs.find(j => j.job_id === jobId)
     if (!job || job.stage === targetStage) return
 
@@ -394,9 +408,7 @@ export default function App() {
         <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
-          onDragOver={(e) =>
-            setOverColumn(e.over ? (e.over.id as FieldStage) : null)
-          }
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
           onDragCancel={() => {
             setActiveJob(null);

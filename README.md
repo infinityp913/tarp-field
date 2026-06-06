@@ -2,7 +2,7 @@
 
 Light-mode kanban dashboard for field archaeologists on the Alienware machine. Tracks photogrammetry jobs through three stages, syncs to Google Sheets so the Lab machine stays up to date.
 
-**Companion repo:** [tarp-photogrammetry-volumetrics-dashboard](https://github.com/infinityp913/tarp-photogrammetry-volumetrics-dashboard) (Lab, dark mode)
+**Version:** 1.1.0.0
 
 ---
 
@@ -27,8 +27,8 @@ Light-mode kanban dashboard for field archaeologists on the Alienware machine. T
 ## Running locally (dev)
 
 ```bash
-# Backend
-uvicorn backend.main:app --reload --port 8001
+# Backend (handles config, auth, and port automatically)
+python -m backend.main --dev
 
 # Frontend (separate terminal)
 cd frontend && npm run dev
@@ -37,15 +37,7 @@ cd frontend && npm run dev
 cd frontend && npm run build
 ```
 
-On non-Windows, the backend auto-uses `dev_base_path` from `config.yaml`.
-
----
-
-## First-time setup
-
-1. Get `credentials.json` from Ananth and place it in the repo root (never commit this file).
-2. Run the server — a browser window will open for Google OAuth. Sign in with the account that has edit access to the TARP sheet.
-3. The token is saved to `token.json` automatically.
+`--dev` makes the backend use `dev_base_path` from `config.yaml` instead of the Windows path.
 
 ---
 
@@ -65,9 +57,14 @@ port: 8001
 
 ---
 
-## Deployment (Alienware)
+## First-time setup
 
-Double-click `start.bat`. It starts the FastAPI server and opens the browser. The built frontend is served as static files from `backend/static/` — no Node.js needed on the field machine.
+1. Get `credentials.json` from Ananth and place it in the repo root (never commit this file).
+2. Double-click `setup.bat` to install Python dependencies (first time only).
+3. Double-click `start.bat` — the server starts and a browser window opens automatically.
+4. On first run, a Google OAuth prompt will appear. Sign in with the account that has edit access to the TARP sheet. The token is saved to `token.json` and this step won't repeat.
+
+The built frontend is served as static files from `backend/static/` — no Node.js needed on the field machine.
 
 ---
 
@@ -76,6 +73,12 @@ Double-click `start.bat`. It starts the FastAPI server and opens the browser. Th
 - **Auto-push every 5 minutes** — writes pgram job data to the Google Sheet automatically.
 - **Manual push** — click the Push button in the top-right.
 - Only `upsert_pgram()` is called (never `full_sync`) — the Field machine doesn't hold SU volume data, so a full sync would blank the SU sheet.
+
+---
+
+## Ignored folders warning
+
+Folders inside stage directories whose names don't match `Pgram_Job_###` are surfaced as an amber warning banner at the top of the board. This catches misnamed folders (e.g. `PreSU17001`) that would otherwise silently not appear as job cards. The banner can be dismissed and will reappear if new misnamed folders are detected on refresh.
 
 ---
 
@@ -88,3 +91,17 @@ Double-click `start.bat`. It starts the FastAPI server and opens the browser. Th
 5. Only after the copy is confirmed complete: drag the card to **Moved to MSI**. This renames the folder with `_MOVED_TO_MSI` and moves it to the `Moved to MSI/` directory.
 
 See `FIELD_HOWTO.md` for the full end-user guide.
+
+---
+
+## Testing
+
+```bash
+# Backend (pytest)
+python3 -m pytest
+
+# Frontend (vitest)
+cd frontend && npm test
+```
+
+See `TESTING.md` for full conventions.
