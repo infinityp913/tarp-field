@@ -27,6 +27,9 @@ Light-mode kanban dashboard for field archaeologists on the Alienware machine. T
 ## Running locally (dev)
 
 ```bash
+# Activate venv (Mac/Linux)
+source .venv/bin/activate
+
 # Backend (handles config, auth, and port automatically)
 python -m backend.main --dev
 
@@ -38,6 +41,23 @@ cd frontend && npm run build
 ```
 
 `--dev` makes the backend use `dev_base_path` from `config.yaml` instead of the Windows path.
+
+---
+
+## Running the built app (production)
+
+```bash
+# 1. Activate venv (Mac/Linux — Windows uses start.bat instead)
+source .venv/bin/activate
+
+# 2. Build frontend into backend/static/
+cd frontend && npm run build
+
+# 3. Start the backend — serves the built React app as static files
+python -m backend.main
+```
+
+No separate frontend process needed. The backend opens a browser window automatically and serves the app at `http://127.0.0.1:8001`.
 
 ---
 
