@@ -1,11 +1,9 @@
-base_path: "C:\\Users\\Field"       # Windows stage-folder root
-dev_base_path: "/Users/ananth/Desktop/tarp-field-test"  # Mac dev path (auto-used on non-Windows)
-
+base_path: "D:/Photogrammetry"
+dev_base_path: "/Users/ananth/Desktop/tarp-field-test"
 stage_folders:
-  raw_images:  Raw Images
-  aligned:     Aligned
-  moved_to_msi: Moved to MSI
-
-gsheets_spreadsheet_id: "1r6TMtVEl6wIAAO8FNEXW1qkkFeAxumyyRsFSE4vHIwI"   # paste from the spreadsheet URL
+  raw_images:   "2026/Raw Images"
+  aligned:      "2026/Aligned"
+  moved_to_msi: "C:/Users/Photogrammetry/SynologyDrive/To Be Processed"
+gsheets_spreadsheet_id: "1r6TMtVEl6wIAAO8FNEXW1qkkFeAxumyyRsFSE4vHIwI"
 host: 127.0.0.1
 port: 8001
