@@ -14,6 +14,7 @@ Those are lab-owned. The lab reads this sheet during sync.
 """
 
 import logging
+import random
 import threading
 import time
 from typing import Optional
@@ -57,6 +58,41 @@ def _log_error(msg: str):
             f.write(f"ERROR {msg}\n")
     except OSError:
         pass
+
+
+def _is_rate_limit(exc: Exception) -> bool:
+    """True if the exception is a Sheets 429 (quota / rate-limit) error."""
+    resp = getattr(exc, "resp", None)
+    status = getattr(resp, "status", None) or getattr(exc, "status_code", None)
+    try:
+        return int(status) == 429
+    except (TypeError, ValueError):
+        return False
+
+
+# Backoff schedule for 429s, in seconds. Sheets quotas are per-minute and refill
+# continuously, so a few short waits usually clear a transient spike. Tunable.
+_BACKOFF_DELAYS = (1.0, 2.0, 4.0, 8.0, 16.0)
+
+
+def _execute(request, what: str):
+    """Execute a Sheets API request, retrying on HTTP 429 with exponential backoff
+    plus jitter. The Google client's ``num_retries`` already covers transient 5xx;
+    this adds explicit handling so a brief quota spike (e.g. two field machines
+    pushing in the same minute) recovers on its own instead of failing the push.
+    Non-429 errors propagate immediately.
+    """
+    for delay in _BACKOFF_DELAYS:
+        try:
+            return request.execute(num_retries=2)
+        except Exception as e:
+            if not _is_rate_limit(e):
+                raise
+            wait = delay + random.uniform(0, 0.5)
+            _log_error(f"{what}: 429 rate-limited, backing off {wait:.1f}s")
+            time.sleep(wait)
+    # Final attempt — let any error (including a persistent 429) propagate.
+    return request.execute(num_retries=2)
 
 
 def _save_token(creds) -> None:
@@ -238,11 +274,9 @@ def _read_range(range_name: str) -> Optional[list[list]]:
         return None
     sid = get_config().gsheets_spreadsheet_id
     try:
-        result = (
-            svc.spreadsheets()
-            .values()
-            .get(spreadsheetId=sid, range=range_name)
-            .execute(num_retries=2)
+        result = _execute(
+            svc.spreadsheets().values().get(spreadsheetId=sid, range=range_name),
+            f"_read_range({range_name})",
         )
         return result.get("values", [])
     except Exception as e:
@@ -306,6 +340,125 @@ def get_pgram_rows() -> list[dict]:
         _pgram_cache = result
         _pgram_cache_time = time.time()
     return result
+
+
+def push_all(jobs: list[FieldJob]) -> list[str]:
+    """Batch-write every job to TARP Field Pgram Tracking in a bounded number of
+    API calls, independent of how many jobs there are.
+
+    The per-job ``upsert_pgram`` path issues ~3 read requests per job (ensure-sheet
+    metadata get, full-range read, and the metadata get for the background reset).
+    A push covering more than ~20 jobs therefore trips the Sheets read quota
+    (60 requests/min/user) and fails with HTTP 429. This function reads the sheet
+    once and writes everything in a handful of batched calls instead.
+
+    Returns a list of error strings (empty on full success).
+    """
+    if not is_available() or not jobs:
+        return []
+
+    _ensure_field_sheet()
+
+    svc = _get_service()
+    if svc is None:
+        return ["Google Sheets unavailable"]
+    sid = get_config().gsheets_spreadsheet_id
+
+    rows = _read_range(f"{_FIELD_SHEET}!A:F")
+    if rows is None:
+        return ["Failed to read existing sheet rows"]
+
+    # Map existing pgram number -> 1-indexed sheet row.
+    existing: dict[str, int] = {}
+    for i, row in enumerate(rows[1:], start=2):
+        if not row or row[FP_NUM] == "":
+            continue
+        existing[_pg_num_str(str(row[FP_NUM]))] = i
+
+    updates: list[dict] = []      # in-place row writes -> one values().batchUpdate
+    appends: list[list] = []      # brand-new rows     -> one values().append
+    touched_rows: list[int] = []  # 1-indexed rows whose background must be reset
+
+    for job in jobs:
+        num_str = _pg_num_str(job.job_id)
+        new_row = [
+            int(num_str) if num_str.isdigit() else num_str,
+            job.su_opened,
+            job.su_closed,
+            job.notes,
+            job.stage,
+            cet_now(),
+        ]
+        idx = existing.get(num_str)
+        if idx is not None:
+            updates.append({"range": f"{_FIELD_SHEET}!A{idx}:F{idx}", "values": [new_row]})
+            touched_rows.append(idx)
+        else:
+            appends.append(new_row)
+
+    try:
+        if updates:
+            _execute(
+                svc.spreadsheets().values().batchUpdate(
+                    spreadsheetId=sid,
+                    body={"valueInputOption": "RAW", "data": updates},
+                ),
+                "push_all.batchUpdate",
+            )
+
+        if appends:
+            result = _execute(
+                svc.spreadsheets().values().append(
+                    spreadsheetId=sid,
+                    range=f"{_FIELD_SHEET}!A1",
+                    valueInputOption="RAW",
+                    insertDataOption="INSERT_ROWS",
+                    body={"values": appends},
+                ),
+                "push_all.append",
+            )
+            # Appended rows are contiguous; updatedRange looks like "…!A5:F8".
+            updated = result.get("updates", {}).get("updatedRange", "")
+            if updated:
+                import re as _re
+                m = _re.search(r"[A-Z](\d+):", updated)
+                if m:
+                    first = int(m.group(1))
+                    touched_rows.extend(range(first, first + len(appends)))
+
+        # Reset background to white on all touched rows in a single batchUpdate so
+        # inherited header green doesn't bleed into data rows.
+        if touched_rows:
+            meta = _execute(svc.spreadsheets().get(spreadsheetId=sid), "push_all.get")
+            sheet_ids = {s["properties"]["title"]: s["properties"]["sheetId"]
+                         for s in meta.get("sheets", [])}
+            sh_id = sheet_ids.get(_FIELD_SHEET)
+            if sh_id is not None:
+                requests = [{
+                    "repeatCell": {
+                        "range": {"sheetId": sh_id,
+                                   "startRowIndex": r - 1, "endRowIndex": r,
+                                   "startColumnIndex": 0, "endColumnIndex": FP_COLS},
+                        "cell": {"userEnteredFormat": {
+                            "backgroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0},
+                        }},
+                        "fields": "userEnteredFormat(backgroundColor)",
+                    }
+                } for r in touched_rows]
+                _execute(
+                    svc.spreadsheets().batchUpdate(
+                        spreadsheetId=sid, body={"requests": requests}
+                    ),
+                    "push_all.background",
+                )
+
+        with _cache_lock:
+            global _pgram_cache_time
+            _pgram_cache_time = 0
+        return []
+    except Exception as e:
+        _log_error(f"push_all failed: {e}")
+        return [str(e)]
 
 
 def upsert_pgram(job: FieldJob):

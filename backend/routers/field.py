@@ -118,15 +118,13 @@ def push_to_sheets():
     if not gsheets.is_available():
         raise HTTPException(status_code=503, detail="Google Sheets not configured")
     jobs = filesystem.scan_all_jobs()
-    errors: list[str] = []
     for job in jobs:
         job.notes = _notes.get(job.job_id, "")
         job.su_opened = _su_opened.get(job.job_id, "")
         job.su_closed = _su_closed.get(job.job_id, "")
-        try:
-            gsheets.upsert_pgram(job)
-        except Exception as e:
-            errors.append(f"{job.job_id}: {e}")
+    # Batched write: bounded API calls regardless of job count, so a large push
+    # doesn't trip the Sheets read quota (60/min/user → HTTP 429).
+    errors = gsheets.push_all(jobs)
     if errors:
-        raise HTTPException(status_code=500, detail=f"Partial failure: {'; '.join(errors)}")
+        raise HTTPException(status_code=500, detail=f"Push failed: {'; '.join(errors)}")
     return {"pushed": len(jobs)}
