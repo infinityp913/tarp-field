@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1.0] - 2026-06-25
+
+### Added
+- **Sync button** replaces the old Push to Sheet button. Clicking Sync first pulls notes
+  and SU opened/closed values from the sheet, merges them into the local in-memory store
+  (sheet value wins when non-empty; local value kept when the sheet cell is empty), then
+  pushes the merged state back. New jobs are never pulled from the sheet -- only fields for
+  jobs that already exist on the local filesystem are updated.
+- **`POST /api/field/sync` endpoint** drives the pull-then-push sequence and returns the
+  updated job list so the frontend can refresh state in one round-trip.
+- **`pull_notes_and_su()` in `gsheets.py`** reads notes and SU fields directly from the
+  sheet (bypasses the 30-second cache) and warms the cache for subsequent calls.
+
+### Fixed
+- **SU opened/closed values from the sheet now appear in the card inputs after a sync** --
+  React `useState` only initializes from props once; `useEffect` hooks on `job.su_opened`
+  and `job.su_closed` now keep the inputs in sync when the parent component updates the
+  job list. A guard prevents the effect from overwriting a value the user is mid-editing.
+- **Transient sheet read failure during sync now aborts the operation** -- previously a
+  failed `_read_range` call returned an empty pull list and sync would proceed to push
+  stale/empty local state over real sheet data. `pull_notes_and_su` now returns `None` on
+  read failure and the sync endpoint responds 503 instead of silently pushing.
+- **Boolean TRUE/FALSE values in SU fields are now stripped** -- the same protection that
+  existed for notes fields (Google Sheets booleans becoming "True"/"False" strings) is
+  now applied to SUs Opened and SUs Closed.
+
 ## [1.1.0.1] - 2026-06-06
 
 ### Fixed

@@ -93,6 +93,10 @@ async function _push(): Promise<{ pushed: number }> {
   return _fetch('/api/field/push', { method: 'POST' })
 }
 
+async function _sync(): Promise<FieldJob[]> {
+  return _fetch('/api/field/sync', { method: 'POST' })
+}
+
 export async function updateSU(
   jobId: string,
   su_opened: string,
@@ -181,8 +185,8 @@ export async function createJob(
   }
 }
 
-export async function pushToSheets(): Promise<{ pushed: number }> {
-  return _push()
+export async function syncWithSheets(): Promise<FieldJob[]> {
+  return _sync()
 }
 
 // -------------------------------------------------------------------
