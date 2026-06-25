@@ -128,3 +128,47 @@ def push_to_sheets():
     if errors:
         raise HTTPException(status_code=500, detail=f"Push failed: {'; '.join(errors)}")
     return {"pushed": len(jobs)}
+
+
+@router.post("/sync")
+def sync_with_sheets():
+    """Pull notes/SU fields from sheet into in-memory store, then push merged state back.
+
+    Pull rule: sheet value wins when non-empty; local value is kept when sheet is empty.
+    Only jobs that exist on the filesystem are updated — no new pgram numbers are created
+    from sheet rows. Rows in the sheet for unknown pgrams are left untouched.
+    Returns the updated job list so the frontend can refresh state.
+    """
+    if not gsheets.is_available():
+        raise HTTPException(status_code=503, detail="Google Sheets not configured")
+
+    jobs = filesystem.scan_all_jobs()
+    job_ids = {j.job_id for j in jobs}
+
+    # Pull: merge non-empty sheet values into in-memory stores for existing jobs only.
+    pulled = gsheets.pull_notes_and_su()
+    if pulled is None:
+        raise HTTPException(status_code=503, detail="Failed to read sheet data")
+
+    for row in pulled:
+        job_id = row["job_id"]
+        if job_id not in job_ids:
+            continue
+        if row["notes"]:
+            _notes[job_id] = row["notes"]
+        if row["su_opened"]:
+            _su_opened[job_id] = row["su_opened"]
+        if row["su_closed"]:
+            _su_closed[job_id] = row["su_closed"]
+
+    # Push merged state to sheet.
+    for job in jobs:
+        job.notes = _notes.get(job.job_id, "")
+        job.su_opened = _su_opened.get(job.job_id, "")
+        job.su_closed = _su_closed.get(job.job_id, "")
+
+    errors = gsheets.push_all(jobs)
+    if errors:
+        raise HTTPException(status_code=500, detail=f"Sync failed: {'; '.join(errors)}")
+
+    return [_enrich(j) for j in jobs]

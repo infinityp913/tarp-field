@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { FieldJob } from '../types'
@@ -24,6 +24,22 @@ export function JobCard({ job, online, isUnpushed, onNotesUpdated, onSUUpdated, 
   const savedSuOpened = useRef(job.su_opened)
   const savedSuClosed = useRef(job.su_closed)
   const [showNotes, setShowNotes] = useState(false)
+
+  // Keep local input state in sync when parent updates job (e.g. after a sync pull).
+  // Guard: if the user has an unsaved edit in progress, don't overwrite it.
+  useEffect(() => {
+    if (suOpened === savedSuOpened.current) {
+      setSuOpened(job.su_opened)
+      savedSuOpened.current = job.su_opened
+    }
+  }, [job.su_opened])
+
+  useEffect(() => {
+    if (suClosed === savedSuClosed.current) {
+      setSuClosed(job.su_closed)
+      savedSuClosed.current = job.su_closed
+    }
+  }, [job.su_closed])
 
   async function handleSUBlur() {
     if (suOpened === savedSuOpened.current && suClosed === savedSuClosed.current) return

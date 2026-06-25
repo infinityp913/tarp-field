@@ -17,7 +17,7 @@ import {
   fetchJobs,
   fetchIgnoredFolders,
   moveStage,
-  pushToSheets,
+  syncWithSheets,
   replayQueue,
   queueDepth,
   fetchSheetUrl,
@@ -228,12 +228,13 @@ export default function App() {
     }
   }
 
-  const handlePush = useCallback(async () => {
+  const handleSync = useCallback(async () => {
     if (isPushingRef.current) return
     isPushingRef.current = true
     setPushState('pushing')
     try {
-      await pushToSheets()
+      const updatedJobs = await syncWithSheets()
+      setJobs(updatedJobs)
       setLastPushAt(Date.now())
       setPushState('ok')
       setUnpushedJobIds(new Set())
@@ -246,22 +247,22 @@ export default function App() {
     }, 4000)
   }, [])
 
-  // Auto-push every 5 minutes
+  // Auto-sync every 5 minutes
   useEffect(() => {
-    const iv = setInterval(handlePush, 300_000)
+    const iv = setInterval(handleSync, 300_000)
     return () => clearInterval(iv)
-  }, [handlePush])
+  }, [handleSync])
 
   function handleNotesUpdated(jobId: string, notes: string) {
     setJobs(prev => prev.map(j => j.job_id === jobId ? { ...j, notes } : j))
   }
 
   const pushLabel =
-    pushState === 'pushing' ? 'Pushing…'
-    : pushState === 'ok' ? '✓ Pushed!'
-    : pushState === 'error' ? 'Push failed'
-    : lastPushAt ? `↑ Push to Sheet · ${timeAgo(lastPushAt)}`
-    : '↑ Push to Sheet'
+    pushState === 'pushing' ? 'Syncing…'
+    : pushState === 'ok' ? '✓ Synced!'
+    : pushState === 'error' ? 'Sync failed'
+    : lastPushAt ? `↕ Sync · ${timeAgo(lastPushAt)}`
+    : '↕ Sync'
 
   const pushBg =
     !online ? T.inputBorder
@@ -302,7 +303,7 @@ export default function App() {
             </a>
           )}
           <button
-            onClick={handlePush}
+            onClick={handleSync}
             disabled={pushState === "pushing" || !online}
             style={{
               padding: "7px 16px",

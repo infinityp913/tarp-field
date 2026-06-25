@@ -342,6 +342,58 @@ def get_pgram_rows() -> list[dict]:
     return result
 
 
+def pull_notes_and_su() -> Optional[list[dict]]:
+    """Read notes and SU fields fresh from sheet (bypasses cache) for sync.
+
+    Returns list of {job_id, notes, su_opened, su_closed}, or None on read
+    failure. Callers must treat None as a hard error (abort, don't push).
+    """
+    if not is_available():
+        return []
+
+    rows = _read_range(f"{_FIELD_SHEET}!A:F")
+    if rows is None:
+        return None
+
+    result = []
+    for row in rows[1:]:
+        if not row:
+            continue
+        while len(row) < FP_COLS:
+            row.append("")
+        if not row[FP_NUM]:
+            continue
+        raw = str(row[FP_NUM])
+        job_id = f"Pgram_Job_{raw}" if raw.isdigit() else raw
+        notes = row[FP_NOTES]
+        if isinstance(notes, bool) or str(notes).upper() in ("TRUE", "FALSE"):
+            notes = ""
+        su_opened = row[FP_SUS_OPENED]
+        if isinstance(su_opened, bool) or str(su_opened).upper() in ("TRUE", "FALSE"):
+            su_opened = ""
+        su_closed = row[FP_SUS_CLOSED]
+        if isinstance(su_closed, bool) or str(su_closed).upper() in ("TRUE", "FALSE"):
+            su_closed = ""
+        result.append({
+            "job_id": job_id,
+            "notes": str(notes),
+            "su_opened": str(su_opened),
+            "su_closed": str(su_closed),
+        })
+
+    # Keep cache warm so subsequent get_pgram_rows() calls don't re-hit the API.
+    cache_rows = [
+        {"job_id": r["job_id"], "sus_opened": r["su_opened"], "sus_closed": r["su_closed"], "notes": r["notes"]}
+        for r in result
+    ]
+    with _cache_lock:
+        global _pgram_cache, _pgram_cache_time
+        _pgram_cache = cache_rows
+        _pgram_cache_time = time.time()
+
+    return result
+
+
 def push_all(jobs: list[FieldJob]) -> list[str]:
     """Batch-write every job to TARP Field Pgram Tracking in a bounded number of
     API calls, independent of how many jobs there are.

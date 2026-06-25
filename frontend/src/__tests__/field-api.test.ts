@@ -155,3 +155,42 @@ describe('fetchIgnoredFolders', () => {
     expect(result).toEqual([])
   })
 })
+
+describe('syncWithSheets', () => {
+  const mockJob = {
+    job_id: 'Pgram_Job_696',
+    su_string: '',
+    trench: '',
+    stage: 'raw_images',
+    notes: 'pulled note',
+    su_opened: 'SU17001',
+    su_closed: 'SU17002',
+    last_updated: '',
+  }
+
+  it('posts to /api/field/sync and returns job list', async () => {
+    const { syncWithSheets } = await import('../api/field')
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [mockJob],
+    } as Response)
+    vi.stubGlobal('fetch', mockFetch)
+
+    const result = await syncWithSheets()
+    expect(mockFetch).toHaveBeenCalledWith('/api/field/sync', { method: 'POST' })
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({ job_id: 'Pgram_Job_696', notes: 'pulled note' })
+  })
+
+  it('throws when server returns an error status', async () => {
+    const { syncWithSheets } = await import('../api/field')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: 'Service Unavailable',
+      text: async () => 'Google Sheets not configured',
+    } as Response))
+
+    await expect(syncWithSheets()).rejects.toThrow()
+  })
+})
