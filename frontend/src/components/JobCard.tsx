@@ -43,15 +43,18 @@ export function JobCard({ job, online, isUnpushed, onNotesUpdated, onSUUpdated, 
 
   async function handleSUBlur() {
     if (suOpened === savedSuOpened.current && suClosed === savedSuClosed.current) return
+    // Optimistically retain what the user typed. updateSU writes to the server when
+    // reachable and otherwise queues the change to replay on reconnect — either way
+    // we must never discard the input on a transient/network failure (which on a
+    // field laptop would silently wipe the numbers the user just entered).
+    savedSuOpened.current = suOpened
+    savedSuClosed.current = suClosed
+    onSUUpdated(job.job_id, suOpened, suClosed)
+    onMarkUnpushed(job.job_id)
     try {
-      await updateSU(job.job_id, suOpened, suClosed)
-      savedSuOpened.current = suOpened
-      savedSuClosed.current = suClosed
-      onSUUpdated(job.job_id, suOpened, suClosed)
-      onMarkUnpushed(job.job_id)
+      await updateSU(job.job_id, suOpened, suClosed, online)
     } catch {
-      setSuOpened(savedSuOpened.current)
-      setSuClosed(savedSuClosed.current)
+      // Already queued for replay by updateSU; value intentionally kept on screen.
     }
   }
 

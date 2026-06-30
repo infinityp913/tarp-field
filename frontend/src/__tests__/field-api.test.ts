@@ -72,6 +72,40 @@ describe('replayQueue', () => {
     expect(queueDepth()).toBe(0)
   })
 
+  it('replays queued SU updates and clears queue on success', async () => {
+    const { updateSU, replayQueue } = await import('../api/field')
+    // Offline edit must be queued, not lost.
+    const offlineResult = await updateSU('Pgram_Job_5', '12', '34', false)
+    expect(offlineResult).toBeNull()
+    expect(queueDepth()).toBe(1)
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job_id: 'Pgram_Job_5', su_opened: '12', su_closed: '34' }),
+    } as Response))
+
+    const count = await replayQueue()
+    expect(count).toBe(1)
+    expect(queueDepth()).toBe(0)
+  })
+
+  it('queues the SU edit (keeping the typed value) when an online save fails', async () => {
+    const { updateSU } = await import('../api/field')
+    // navigator reports online, but the request fails (e.g. flaky network / server down).
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: 'Service Unavailable',
+      text: async () => 'down',
+    } as Response))
+
+    await expect(updateSU('Pgram_Job_6', '99', '', true)).rejects.toThrow('Queued (offline)')
+    // The value the user typed is preserved in the replay queue, not discarded.
+    const q = JSON.parse(localStorage.getItem('tarp_field_queue') ?? '[]')
+    expect(q).toHaveLength(1)
+    expect(q[0]).toMatchObject({ type: 'su', jobId: 'Pgram_Job_6', su_opened: '99', su_closed: '' })
+  })
+
   it('replays queued job creation and clears queue on success', async () => {
     const { createJob, replayQueue } = await import('../api/field')
     await createJob('Pgram_Job_4', 'SU17001', false)

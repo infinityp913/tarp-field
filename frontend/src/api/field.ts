@@ -9,6 +9,7 @@ const QUEUE_KEY = 'tarp_field_queue'
 type QueuedAction =
   | { type: 'move'; jobId: string; targetStage: FieldStage }
   | { type: 'notes'; jobId: string; notes: string }
+  | { type: 'su'; jobId: string; su_opened: string; su_closed: string }
   | { type: 'create'; jobId: string; suString: string; trench: string }
   | { type: 'push' }
 
@@ -97,7 +98,7 @@ async function _sync(): Promise<FieldJob[]> {
   return _fetch('/api/field/sync', { method: 'POST' })
 }
 
-export async function updateSU(
+async function _updateSU(
   jobId: string,
   su_opened: string,
   su_closed: string,
@@ -168,6 +169,24 @@ export async function updateNotes(
   }
 }
 
+export async function updateSU(
+  jobId: string,
+  su_opened: string,
+  su_closed: string,
+  online: boolean,
+): Promise<FieldJob | null> {
+  if (!online) {
+    enqueue({ type: 'su', jobId, su_opened, su_closed })
+    return null
+  }
+  try {
+    return await _updateSU(jobId, su_opened, su_closed)
+  } catch {
+    enqueue({ type: 'su', jobId, su_opened, su_closed })
+    throw new Error('Queued (offline)')
+  }
+}
+
 export async function createJob(
   jobId: string,
   suString: string,
@@ -206,6 +225,8 @@ export async function replayQueue(): Promise<number> {
         await _moveStage(action.jobId, action.targetStage)
       } else if (action.type === 'notes') {
         await _updateNotes(action.jobId, action.notes)
+      } else if (action.type === 'su') {
+        await _updateSU(action.jobId, action.su_opened, action.su_closed)
       } else if (action.type === 'create') {
         await _createJob(action.jobId, action.suString)
       } else if (action.type === 'push') {
